@@ -1,13 +1,15 @@
 import './App.css'
 import io from 'socket.io-client'
 import { useState } from 'react';
-
+import Editor from 'monaco-editor';
 const socket = io('http://localhost:5000');
 
 const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
+  const [language, setLanguage]= useState('javascript');
+  const [code, setCode] = useState('');
 
   const joinRoom=()=>{
     if(roomId && userName){
@@ -17,8 +19,13 @@ const App = () => {
   }
 
   const copyRoomId=()=>{
-    navigator.clipboard.writeText(roomId);
-  }
+    
+  };
+
+  const handleCodeChange=(newCode)=>{
+    setCode(newCode);
+  };
+
 
   if(!joined){
     return <div className="join-container">
@@ -44,7 +51,7 @@ const App = () => {
       <div className="sidebar">
         <div className="room-info">
           <h2>Code Room: {roomId}</h2>
-          <button onClick={copyRoomId}>
+          <button onClick={copyRoomId} className="copy-button">
             Copy Id
           </button>
         </div>
@@ -60,6 +67,24 @@ const App = () => {
           <option value="java">Java</option>
           <option value="cpp">C++</option>
         </select>
+        /* Leave room button */
+        <button className="leave-button" onClick={leaveRoom}>
+          Leave Room
+        </button>
+      </div>
+      <div className="editor-wrapper">
+        <Editor 
+          height={"100"} 
+          defaultLanguage={language} 
+          language={language} 
+          value={code}
+          onChange={handleCodeChange}
+          theme="vs-dark"
+          options={{
+            minimap: { enabled: false },
+            fontSize: 16,
+          }}
+        />
       </div>
     </div>
   );
