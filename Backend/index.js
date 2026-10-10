@@ -20,26 +20,26 @@ io.on('connection', (socket) => {
     let currentUser = null;
 
     socket.on("join",({roomId, userName})=>{
-        currentRoom = roomId;
-        currentUser = userName;
-        if(currentRoom){
+        // Leave the previous room first (only if the user was already in one)
+        if(currentRoom && rooms.has(currentRoom)){
             socket.leave(currentRoom);
-            rooms.get(currentRoom)?.delete(currentUser);
+            rooms.get(currentRoom).delete(currentUser);
             io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom)));
-
         }
 
+        // Join the new room
         currentRoom = roomId;
+        currentUser = userName;
+
         if(!rooms.has(roomId)){
             rooms.set(roomId, new Set());
         }
-        rooms.get(roomId).add(username);
+        rooms.get(roomId).add(userName);
         io.to(roomId).emit("user-joined", Array.from(rooms.get(roomId)));
-
+        console.log("User joined room", roomId, "with username", userName);
     });
 
 });
-
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
