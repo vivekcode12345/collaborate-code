@@ -31,15 +31,34 @@ io.on('connection', (socket) => {
         currentRoom = roomId;
         currentUser = userName;
 
+        socket.join(roomId);
+
         if(!rooms.has(roomId)){
             rooms.set(roomId, new Set());
         }
         rooms.get(roomId).add(userName);
         io.to(roomId).emit("user-joined", Array.from(rooms.get(roomId)));
-        console.log("User joined room", roomId, "with username", userName);
     });
 
+    socket.on("disconnect", () => {
+        console.log("User disconnected", socket.id);
+        if(currentRoom && rooms.has(currentRoom)){
+            rooms.get(currentRoom).delete(currentUser);
+            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom)));
+        }
+    });
+
+    socket.on("leave-room", () => {
+        if(currentRoom && rooms.has(currentRoom)){
+            socket.leave(currentRoom);
+            rooms.get(currentRoom).delete(currentUser);
+            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom)));
+        }
+        currentRoom = null;
+        currentUser = null;
+    });
 });
+
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });

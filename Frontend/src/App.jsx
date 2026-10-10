@@ -1,7 +1,7 @@
 import './App.css'
 import io from 'socket.io-client'
 import { useState } from 'react';
-import Editor from 'monaco-editor';
+import { Editor } from '@monaco-editor/react'
 const socket = io('http://localhost:5000');
 
 const App = () => {
@@ -10,6 +10,7 @@ const App = () => {
   const [userName, setUserName] = useState('');
   const [language, setLanguage]= useState('javascript');
   const [code, setCode] = useState('');
+  const [copySuccess, setCopySuccess] = useState("");
 
   const joinRoom=()=>{
     if(roomId && userName){
@@ -19,11 +20,20 @@ const App = () => {
   }
 
   const copyRoomId=()=>{
-    
+    navigator.clipboard.writeText(roomId);
+    setCopySuccess("Copied!");
+    setTimeout(() => setCopySuccess(""), 2000); // Clear the message after 2 seconds
   };
 
   const handleCodeChange=(newCode)=>{
     setCode(newCode);
+  };
+
+  const leaveRoom=()=>{
+    socket.emit("leave-room");
+    setJoined(false);
+    setRoomId("");
+    setUserName("");
   };
 
 
@@ -54,6 +64,7 @@ const App = () => {
           <button onClick={copyRoomId} className="copy-button">
             Copy Id
           </button>
+          {copySuccess && <span className="copy-success">{copySuccess}</span>}
         </div>
         <h3>Users in Room:</h3>
         <ul>
@@ -61,20 +72,22 @@ const App = () => {
           <li>xyz</li>
         </ul>
         <p className="typing-indicator">User typing...</p>
-        <select className="language-selector">
+        <select className="language-selector" 
+        value={language} 
+        onChange={(e)=>setLanguage(e.target.value)
+        }>
           <option value="javascript">JavaScript</option>
           <option value="python">Python</option>
           <option value="java">Java</option>
           <option value="cpp">C++</option>
         </select>
-        /* Leave room button */
         <button className="leave-button" onClick={leaveRoom}>
           Leave Room
         </button>
       </div>
       <div className="editor-wrapper">
         <Editor 
-          height={"100"} 
+          height={"100%"}
           defaultLanguage={language} 
           language={language} 
           value={code}
