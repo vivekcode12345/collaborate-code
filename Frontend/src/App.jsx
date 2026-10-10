@@ -16,6 +16,10 @@ const App = () => {
     }
   }
 
+  const copyRoomId=()=>{
+    navigator.clipboard.writeText(roomId);
+  }
+
   if(!joined){
     return <div className="join-container">
       <div className="join-form">
@@ -34,7 +38,31 @@ const App = () => {
       </div>
     </div>
   }
-  return <div>User Joined</div>
+
+  return (
+    <div className="editor-container">
+      <div className="sidebar">
+        <div className="room-info">
+          <h2>Code Room: {roomId}</h2>
+          <button onClick={copyRoomId}>
+            Copy Id
+          </button>
+        </div>
+        <h3>Users in Room:</h3>
+        <ul>
+          <li>Vivek verma</li>
+          <li>xyz</li>
+        </ul>
+        <p className="typing-indicator">User typing...</p>
+        <select className="language-selector">
+          <option value="javascript">JavaScript</option>
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+          <option value="cpp">C++</option>
+        </select>
+      </div>
+    </div>
+  );
 }
 
 export default App;
