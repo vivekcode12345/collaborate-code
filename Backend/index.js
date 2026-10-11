@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
+import path from 'path';
 
 const app = express();
 
@@ -47,7 +48,7 @@ io.on('connection', (socket) => {
     socket.on("languageChange", ({roomId, language}) => {
         socket.to(roomId).emit("languageChange", language);
     });
-    
+
     socket.on("disconnect", () => {
         console.log("User disconnected", socket.id);
         if(currentRoom && rooms.has(currentRoom)){
@@ -68,6 +69,13 @@ io.on('connection', (socket) => {
     socket.on("codeChange", ({roomId, code}) => {
         socket.to(roomId).emit("codeUpdate", code);
     });
+});
+
+const __dirname = path.resolve();
+app.use(express.static(path.join(__dirname, 'Frontend/dist')));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'Frontend/dist', 'index.html'));
 });
 
 server.listen(port, () => {
