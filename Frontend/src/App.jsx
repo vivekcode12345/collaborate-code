@@ -12,9 +12,7 @@ const App = () => {
   const [language, setLanguage]= useState('javascript');
   const [code, setCode] = useState('');
   const [copySuccess, setCopySuccess] = useState("");
-
-  const [users, setUsers] = useState([]);
-
+  const [typing, setTyping] = useState(false);
   useEffect(() => {
     socket.on("user-joined", (users) => {
       setUsers(users);
@@ -23,14 +21,30 @@ const App = () => {
     socket.on("codeUpdate", (newCode) => {
       setCode(newCode);
     });
+
+    socket.on("userTyping", (userName) => {
+      setTyping(`${userName} is typing...`);
+      setTimeout(() => setTyping(false), 2000); // Clear the typing indicator after 2 seconds
+    }
+    );
+
     socket.on("user-Left", (users) => {
       setUsers(users);
     });
+
+    socket.on("languageChange", (newLanguage) => {
+      setLanguage(newLanguage);
+    }
+    );
+
 
     return () => {
       socket.off("user-joined");
       socket.off("user-Left");
       socket.off("codeUpdate");
+      socket.off("userTyping");
+      socket.off("languageChange");
+      
     };
   }, []);
 
@@ -62,7 +76,13 @@ const App = () => {
   const handleCodeChange=(newCode)=>{
     setCode(newCode);
     socket.emit("codeChange", {roomId, code: newCode});
-    socket.emit("typing", {roomId, userName});
+    socket.emit("userTyping", {roomId, userName});
+  };
+
+  const handleLanguageChange=(e)=>{
+    const newLanguage = e.target.value;
+    setLanguage(newLanguage);
+    socket.emit("languageChange", {roomId, language: newLanguage});
   };
 
   const leaveRoom=()=>{
@@ -108,11 +128,11 @@ const App = () => {
             <li key={index}>{user}</li>
           ))}
         </ul>
-        <p className="typing-indicator">User typing...</p>
+        {typing && <p className="typing-indicator">{typing}</p>}
         <select className="language-selector" 
         value={language} 
-        onChange={(e)=>setLanguage(e.target.value)
-        }>
+        onChange={handleLanguageChange}>
+
           <option value="javascript">JavaScript</option>
           <option value="python">Python</option>
           <option value="java">Java</option>

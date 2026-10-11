@@ -40,10 +40,14 @@ io.on('connection', (socket) => {
         io.to(roomId).emit("user-joined", Array.from(rooms.get(roomId)));
     });
 
-    socket.on("typing", ({roomId, userName}) => {
+    socket.on("userTyping", ({roomId, userName}) => {
         socket.to(roomId).emit("userTyping", userName);
     });  
-
+    
+    socket.on("languageChange", ({roomId, language}) => {
+        socket.to(roomId).emit("languageChange", language);
+    });
+    
     socket.on("disconnect", () => {
         console.log("User disconnected", socket.id);
         if(currentRoom && rooms.has(currentRoom)){
