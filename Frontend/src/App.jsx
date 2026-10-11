@@ -3,6 +3,7 @@ import io from 'socket.io-client'
 import { useState } from 'react';
 import { Editor } from '@monaco-editor/react'
 const socket = io('http://localhost:5000');
+import { useEffect } from 'react';
 
 const App = () => {
   const [joined, setJoined] = useState(false);
@@ -11,6 +12,39 @@ const App = () => {
   const [language, setLanguage]= useState('javascript');
   const [code, setCode] = useState('');
   const [copySuccess, setCopySuccess] = useState("");
+
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    socket.on("user-joined", (users) => {
+      setUsers(users);
+    });
+
+    socket.on("codeUpdate", (newCode) => {
+      setCode(newCode);
+    });
+    socket.on("user-Left", (users) => {
+      setUsers(users);
+    });
+
+    return () => {
+      socket.off("user-joined");
+      socket.off("user-Left");
+      socket.off("codeUpdate");
+    };
+  }, []);
+
+   useEffect(() => {
+    const handleBeforeUnload = () => {
+      socket.emit("leave-room");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   const joinRoom=()=>{
     if(roomId && userName){
@@ -27,6 +61,8 @@ const App = () => {
 
   const handleCodeChange=(newCode)=>{
     setCode(newCode);
+    socket.emit("codeChange", {roomId, code: newCode});
+    socket.emit("typing", {roomId, userName});
   };
 
   const leaveRoom=()=>{
@@ -68,8 +104,9 @@ const App = () => {
         </div>
         <h3>Users in Room:</h3>
         <ul>
-          <li>Vivek verma</li>
-          <li>xyz</li>
+          {users.map((user, index) => (
+            <li key={index}>{user}</li>
+          ))}
         </ul>
         <p className="typing-indicator">User typing...</p>
         <select className="language-selector" 
