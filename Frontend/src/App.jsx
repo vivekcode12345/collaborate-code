@@ -13,6 +13,7 @@ const App = () => {
   const [code, setCode] = useState('');
   const [copySuccess, setCopySuccess] = useState("");
   const [typing, setTyping] = useState(false);
+  const [users, setUsers] = useState([]);
   useEffect(() => {
     socket.on("user-joined", (users) => {
       setUsers(users);
@@ -44,7 +45,7 @@ const App = () => {
       socket.off("codeUpdate");
       socket.off("userTyping");
       socket.off("languageChange");
-      
+
     };
   }, []);
 
