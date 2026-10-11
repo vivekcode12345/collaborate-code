@@ -2,7 +2,7 @@ import './App.css'
 import io from 'socket.io-client'
 import { useState } from 'react';
 import { Editor } from '@monaco-editor/react'
-const socket = io('http://localhost:5000');
+const socket = io(window.location.origin);
 import { useEffect } from 'react';
 
 const App = () => {
