@@ -2,7 +2,7 @@ import './App.css'
 import io from 'socket.io-client'
 import { useState } from 'react';
 import { Editor } from '@monaco-editor/react'
-const socket = io(window.location.origin);
+const socket = io('https://collaborate-code.onrender.com');
 import { useEffect } from 'react';
 
 const App = () => {
@@ -14,6 +14,9 @@ const App = () => {
   const [copySuccess, setCopySuccess] = useState("");
   const [typing, setTyping] = useState(false);
   const [users, setUsers] = useState([]);
+  const [output, setOutput] = useState("");
+  const [version, setVersion] = useState("*");
+
   useEffect(() => {
     socket.on("user-joined", (users) => {
       setUsers(users);
@@ -37,7 +40,10 @@ const App = () => {
       setLanguage(newLanguage);
     }
     );
-
+   
+    socket.on("codeResponse", (response) => {
+      setOutput(response.run.output);
+    });
 
     return () => {
       socket.off("user-joined");
@@ -45,7 +51,7 @@ const App = () => {
       socket.off("codeUpdate");
       socket.off("userTyping");
       socket.off("languageChange");
-
+      socket.off("codeResponse");
     };
   }, []);
 
@@ -85,6 +91,11 @@ const App = () => {
     setLanguage(newLanguage);
     socket.emit("languageChange", {roomId, language: newLanguage});
   };
+
+  const runCode=()=>{
+    socket.emit("compileCode", {code, roomId, language, version});
+  }
+
 
   const leaveRoom=()=>{
     socket.emit("leave-room");
@@ -145,7 +156,7 @@ const App = () => {
       </div>
       <div className="editor-wrapper">
         <Editor 
-          height={"100%"}
+          height={"60%"}
           defaultLanguage={language} 
           language={language} 
           value={code}
@@ -155,7 +166,9 @@ const App = () => {
             minimap: { enabled: false },
             fontSize: 16,
           }}
-        />
+        /> 
+        <button className="run-btn" onClick={runCode}>Execute Code</button>
+        <textarea className="output-area" value={output} readOnly placeholder="Output will appear here..."/>
       </div>
     </div>
   );
