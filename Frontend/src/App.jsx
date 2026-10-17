@@ -10,7 +10,7 @@ const App = () => {
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [language, setLanguage]= useState('javascript');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState("// Start coding here...");
   const [copySuccess, setCopySuccess] = useState("");
   const [typing, setTyping] = useState(false);
   const [users, setUsers] = useState([]);
