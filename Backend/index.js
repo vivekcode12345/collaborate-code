@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import axios from 'axios';
 
 // Wandbox — free code execution API, no key/signup needed.
@@ -13,17 +14,22 @@ const WANDBOX_COMPILERS = {
     java: 'openjdk-jdk-21+35',
 };
 
-async function runOnWandbox(language, code) {
+const MAX_CODE = 100000;
+
+async function runOnWandbox(language, code, stdin = "") {
     const compiler = WANDBOX_COMPILERS[language];
     if (!compiler) throw new Error(`Language '${language}' not supported`);
     const { data } = await axios.post('https://wandbox.org/api/compile.json', {
         compiler,
         code,
+        stdin: String(stdin).slice(0, 5000),
         save: false,
     }, { timeout: 60000 });
-    // Wandbox returns program_output on success, compiler_error on failure.
+    if (!data.program_output && data.compiler_error) {
+        return String(data.compiler_error).slice(0, 5000);
+    }
     const out = data.program_output || data.program_message
-        || data.compiler_error || data.compiler_output || data.compiler_message
+        || data.compiler_output || data.compiler_message
         || '(no output)';
     return String(out).slice(0, 5000);
 }
@@ -35,110 +41,143 @@ const server = http.createServer(app);
 
 
 
-// const url = `https://collaborate-code.onrender.com`;
-// const interval = 30000;
-
-// function reloadWebsite() {
-//   axios
-//     .get(url)
-//     .then((response) => {
-//       console.log("website reloded");
-//     })
-//     .catch((error) => {
-//       console.error(`Error : ${error.message}`);
-//     });
-// }
-
-// setInterval(reloadWebsite, interval);
-
-const io= new Server(server, {
+const io = new Server(server, {
     cors: {
-        origin: '*'
+        origin: process.env.ALLOWED_ORIGIN || '*',
     },
 });
 
-const rooms= new Map();
+const rooms = new Map();
+
+function leave(socket) {
+    const roomId = socket.currentRoom;
+    if (!roomId || !rooms.has(roomId)) {
+        socket.currentRoom = null;
+        socket.currentUser = null;
+        return;
+    }
+    const room = rooms.get(roomId);
+    socket.leave(roomId);
+    room.users.delete(socket.id);
+    if (room.users.size === 0) {
+        rooms.delete(roomId);
+    } else {
+        io.to(roomId).emit("user-Left", [...room.users.values()]);
+    }
+    socket.currentRoom = null;
+    socket.currentUser = null;
+}
 
 io.on('connection', (socket) => {
     console.log("A user connected", socket.id);
-    let currentRoom = null;
-    let currentUser = null;
+    socket.currentRoom = null;
+    socket.currentUser = null;
+    socket.lastCompileTime = 0;
 
-    socket.on("join",({roomId, userName})=>{
-        // Leave the previous room first (only if the user was already in one)
-        if(currentRoom && rooms.has(currentRoom)){
-            socket.leave(currentRoom);
-            rooms.get(currentRoom).users.delete(currentUser);
-            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom).users));
+    socket.on("join", ({ roomId, userName }) => {
+        if (typeof roomId !== 'string' || roomId.trim() === '') return;
+        if (typeof userName !== 'string' || userName.trim() === '') return;
+
+        const cleanRoomId = roomId.slice(0, 100);
+        const cleanUserName = userName.trim().slice(0, 30);
+
+        leave(socket);
+
+        socket.currentRoom = cleanRoomId;
+        socket.currentUser = cleanUserName;
+
+        socket.join(cleanRoomId);
+
+        if (!rooms.has(cleanRoomId)) {
+            rooms.set(cleanRoomId, {
+                users: new Map(),
+                code: "// Start your code here",
+                language: "javascript",
+                running: false,
+            });
         }
 
-        // Join the new room
-        currentRoom = roomId;
-        currentUser = userName;
+        const room = rooms.get(cleanRoomId);
+        room.users.set(socket.id, cleanUserName);
+        socket.emit("codeUpdate", room.code);
+        socket.emit("languageChange", room.language);
 
-        socket.join(roomId);
-
-        if(!rooms.has(roomId)){
-            rooms.set(roomId, {users: new Set(),code: "// Start your code here"});
-        }
-        rooms.get(roomId).users.add(userName);
-        socket.emit("codeUpdate", rooms.get(roomId).code);
-        io.to(roomId).emit("user-joined", Array.from(rooms.get(currentRoom).users));
+        io.to(cleanRoomId).emit("user-joined", [...room.users.values()]);
     });
 
-    socket.on("userTyping", ({roomId, userName}) => {
-        socket.to(roomId).emit("userTyping", userName);
-    });  
+    socket.on("userTyping", () => {
+        const roomId = socket.currentRoom;
+        if (!roomId || !rooms.has(roomId)) return;
+        socket.to(roomId).emit("userTyping", socket.currentUser);
+    });
     
-    socket.on("languageChange", ({roomId, language}) => {
+    socket.on("languageChange", ({ language }) => {
+        const roomId = socket.currentRoom;
+        if (!roomId || !rooms.has(roomId)) return;
+        if (!WANDBOX_COMPILERS[language]) return;
+        const room = rooms.get(roomId);
+        room.language = language;
         socket.to(roomId).emit("languageChange", language);
     });
 
-    socket.on("compileCode", async({code, roomId, language, version,input})=>{
+    socket.on("compileCode", async ({ code, input }) => {
+        const roomId = socket.currentRoom;
+        if (!roomId || !rooms.has(roomId)) return;
+        const room = rooms.get(roomId);
+
+        if (room.running) return;
+        if (typeof code !== 'string' || code.length > MAX_CODE) return;
+
+        const now = Date.now();
+        const lastRun = socket.lastCompileTime || 0;
+        if (now - lastRun < 3000) {
+            socket.emit("codeResponse", { run: { output: "Please wait a few seconds before running again." } });
+            return;
+        }
+        socket.lastCompileTime = now;
+
+        room.running = true;
+        io.to(roomId).emit("codeRunning");
+
         try {
-            if(!rooms.has(roomId)) return;
-            const output = await runOnWandbox(language, code);
+            const output = await runOnWandbox(room.language, code, input);
             io.to(roomId).emit("codeResponse", { run: { output } });
         } catch (err) {
             const msg = err?.response?.data?.message || err.message;
             console.error("compileCode failed:", msg);
             io.to(roomId).emit("codeResponse", { run: { output: `Execution failed: ${msg}` } });
+        } finally {
+            room.running = false;
         }
     });
         
 
     socket.on("disconnect", () => {
         console.log("User disconnected", socket.id);
-        if(currentRoom && rooms.has(currentRoom)){
-            rooms.get(currentRoom).users.delete(currentUser);
-            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom).users));
-        }
+        leave(socket);
     });
 
     socket.on("leave-room", () => {
-        if(currentRoom && rooms.has(currentRoom)){
-            socket.leave(currentRoom);
-            rooms.get(currentRoom).users.delete(currentUser);
-            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom).users));
-        }
-        currentRoom = null;
-        currentUser = null;
+        leave(socket);
     });
-    socket.on("codeChange", ({roomId, code}) => {
-        if(!rooms.has(roomId))
-            return;
-        rooms.get(roomId).code = code; 
+
+    socket.on("codeChange", ({ code }) => {
+        const roomId = socket.currentRoom;
+        if (!roomId || !rooms.has(roomId)) return;
+        if (typeof code !== 'string' || code.length > MAX_CODE) return;
+        const room = rooms.get(roomId);
+        room.code = code;
         socket.to(roomId).emit("codeUpdate", code);
     });
     
 
 });
 
-const __dirname = path.resolve();
-app.use(express.static(path.join(__dirname, 'Frontend/dist')));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use(express.static(path.join(__dirname, '../Frontend/dist')));
 
 app.get('/*splat', (req, res) => {
-    res.sendFile(path.join(__dirname, 'Frontend/dist', 'index.html'));
+    res.sendFile(path.join(__dirname, '../Frontend/dist', 'index.html'));
 });
 
 server.listen(port, () => {
