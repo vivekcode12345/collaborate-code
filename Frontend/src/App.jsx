@@ -1,7 +1,11 @@
 import './App.css'
 import io from 'socket.io-client'
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Editor } from '@monaco-editor/react'
+import { createSession } from './yjsProvider'
+import { MonacoBinding } from 'y-monaco';
+
+import './monacoSetup'
 
 const socket = io(import.meta.env.VITE_SOCKET_URL || '/');
 
@@ -27,46 +31,85 @@ const isDefaultTemplate = (code) => {
     return Object.values(TEMPLATES).includes(code) || code.startsWith("// Start");
 };
 
+function escapeCssString(str) {
+    return String(str).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\A ');
+}
+
 const App = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
   const [language, setLanguage] = useState('javascript');
-  const [code, setCode] = useState("// Start your code here");
   const [copySuccess, setCopySuccess] = useState("");
-  const [typing, setTyping] = useState("");
   const [users, setUsers] = useState([]);
   const [output, setOutput] = useState("");
   const [userInput, setUserInput] = useState("");
   const [running, setRunning] = useState(false);
 
-  const lastTypingEmit = useRef(0);
-  const typingTimeout = useRef(null);
   const joinInfo = useRef(null);
+  const sessionRef = useRef(null);
+  const bindingRef = useRef(null);
+
+  const updateRemoteCursorStyles = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    const styles = [];
+    session.awareness.getStates().forEach((state, clientID) => {
+      if (clientID === session.doc.clientID) return;
+      const user = state?.user;
+      const color = user?.color || '#e74c3c';
+      const name = escapeCssString(user?.name || 'User');
+      styles.push(`
+.yRemoteSelection-${clientID} { background-color: ${color}5a !important; }
+.yRemoteSelectionHead-${clientID} {
+  position: absolute;
+  border-left: 2px solid ${color};
+  height: 100%;
+  box-sizing: border-box;
+  z-index: 100;
+}
+.yRemoteSelectionHead-${clientID}::before {
+  content: "${name}";
+  position: absolute;
+  top: -1.4em;
+  left: -2px;
+  font-size: 11px;
+  padding: 1px 4px;
+  color: #fff;
+  background: ${color};
+  border-radius: 3px;
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+}
+      `);
+    });
+    let el = document.getElementById('remote-cursor-styles');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'remote-cursor-styles';
+      document.head.appendChild(el);
+    }
+    el.textContent = styles.join('\n');
+  }, []);
+
+  function removeRemoteCursorStyles() {
+    const el = document.getElementById('remote-cursor-styles');
+    if (el) el.remove();
+  }
 
   useEffect(() => {
-    socket.on("user-joined", (users) => {
-      setUsers(users);
+    socket.on("user-joined", (usersList) => {
+      setUsers(usersList);
     });
 
-    socket.on("codeUpdate", (newCode) => {
-      setCode(newCode);
-    });
-
-    socket.on("userTyping", (name) => {
-      setTyping(`${name} is typing...`);
-      if (typingTimeout.current) clearTimeout(typingTimeout.current);
-      typingTimeout.current = setTimeout(() => setTyping(""), 2000);
-    });
-
-    socket.on("user-Left", (users) => {
-      setUsers(users);
+    socket.on("user-Left", (usersList) => {
+      setUsers(usersList);
     });
 
     socket.on("languageChange", (newLanguage) => {
       setLanguage(newLanguage);
-    }
-    );
+    });
    
     socket.on("codeRunning", () => {
       setRunning(true);
@@ -87,13 +130,12 @@ const App = () => {
     return () => {
       socket.off("user-joined");
       socket.off("user-Left");
-      socket.off("codeUpdate");
-      socket.off("userTyping");
+      socket.off("yjs-init");
       socket.off("languageChange");
       socket.off("codeRunning");
       socket.off("codeResponse");
       socket.off("connect");
-      if (typingTimeout.current) clearTimeout(typingTimeout.current);
+      removeRemoteCursorStyles();
     };
   }, []);
 
@@ -103,6 +145,8 @@ const App = () => {
     if(roomId && userName){
       const info = { roomId, userName };
       joinInfo.current = info;
+      sessionRef.current = createSession(socket, userName);
+      sessionRef.current.awareness.on('change', updateRemoteCursorStyles);
       socket.emit("join", info);
       setJoined(true);
     }
@@ -114,23 +158,19 @@ const App = () => {
     setTimeout(() => setCopySuccess(""), 2000); // Clear the message after 2 seconds
   };
 
-  const handleCodeChange=(newCode)=>{
-    setCode(newCode);
-    socket.emit("codeChange", { code: newCode });
-    const now = Date.now();
-    if (now - lastTypingEmit.current > 1000) {
-      socket.emit("userTyping");
-      lastTypingEmit.current = now;
-    }
-  };
-
-  const handleLanguageChange=(e)=>{
+  const handleLanguageChange=(e)=> {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
-    if (isDefaultTemplate(code)) {
-      const template = TEMPLATES[newLanguage] || "// Start your code here";
-      setCode(template);
-      socket.emit("codeChange", { code: template });
+    const session = sessionRef.current;
+    if (session) {
+      const currentText = session.ytext.toString();
+      if (isDefaultTemplate(currentText)) {
+        const template = TEMPLATES[newLanguage] || "// Start your code here";
+        session.doc.transact(() => {
+          session.ytext.delete(0, session.ytext.length);
+          session.ytext.insert(0, template);
+        });
+      }
     }
     socket.emit("languageChange", { language: newLanguage });
   };
@@ -140,7 +180,7 @@ const App = () => {
   };
 
   const runCode=()=>{
-    socket.emit("compileCode", { code, language, input: userInput });
+    socket.emit("compileCode", { language, input: userInput });
   }
 
   const createRoomId=()=>{
@@ -153,12 +193,20 @@ const App = () => {
     setJoined(false);
     setRoomId("");
     setUserName("");
-    setCode("// Start your code here");
     setLanguage("javascript");
     setOutput("");
     setUserInput("");
-    setTyping("");
     joinInfo.current = null;
+    if (bindingRef.current) {
+      bindingRef.current.destroy();
+      bindingRef.current = null;
+    }
+    if (sessionRef.current) {
+      sessionRef.current.awareness.off('change', updateRemoteCursorStyles);
+      sessionRef.current.destroy();
+      sessionRef.current = null;
+    }
+    removeRemoteCursorStyles();
   };
 
 
@@ -198,7 +246,6 @@ const App = () => {
             <li key={`${user}-${index}`}>{user}</li>
           ))}
         </ul>
-        {typing && <p className="typing-indicator">{typing}</p>}
         <select className="language-selector" 
         value={language} 
         onChange={handleLanguageChange}>
@@ -216,15 +263,33 @@ const App = () => {
         <Editor 
           height="100%"
           defaultLanguage={language} 
-          language={language} 
-          value={code}
-          onChange={handleCodeChange}
+          language={language}
           theme="vs-dark"
           options={{
             minimap: { enabled: false },
             fontSize: 16,
           }}
-        /> 
+          onMount={(editor) => {
+            const session = sessionRef.current;
+            if (!session || bindingRef.current) return;
+            const model = editor.getModel();
+            const binding = new MonacoBinding(
+              session.ytext,
+              model,
+              new Set([editor]),
+              session.awareness
+            );
+            bindingRef.current = binding;
+            // Refresh remote cursor styles now that decorations can render.
+            updateRemoteCursorStyles();
+            return () => {
+              if (bindingRef.current) {
+                bindingRef.current.destroy();
+                bindingRef.current = null;
+              }
+            };
+          }}
+        />
         <textarea className="input-console" placeholder="Enter input for the program..." value={userInput} onChange={handleUserInput}/>
         <button className="run-btn" onClick={runCode} disabled={running}>
           {running ? "Running..." : "Execute Code"}

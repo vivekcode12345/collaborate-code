@@ -4,6 +4,14 @@ import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
+import { Doc as YDoc } from 'yjs';
+import { Awareness } from 'y-protocols/awareness';
+import {
+  applyAwarenessUpdate,
+  encodeAwarenessUpdate,
+  removeAwarenessStates,
+} from 'y-protocols/awareness';
+import { applyUpdate, encodeStateAsUpdate } from 'yjs';
 
 // Wandbox — free code execution API, no key/signup needed.
 // Docs: https://github.com/melpon/wandbox/blob/master/kennel/API.md
@@ -15,6 +23,7 @@ const WANDBOX_COMPILERS = {
 };
 
 const MAX_CODE = 100000;
+const MAX_UPDATE_BYTES = 200000;
 
 async function runOnWandbox(language, code, stdin = "") {
     const compiler = WANDBOX_COMPILERS[language];
@@ -58,8 +67,17 @@ function leave(socket) {
     }
     const room = rooms.get(roomId);
     socket.leave(roomId);
+
+    if (socket.data && socket.data.awarenessIds && socket.data.awarenessIds.size) {
+        const ids = [...socket.data.awarenessIds];
+        socket.data.awarenessIds.clear();
+        removeAwarenessStates(room.awareness, ids, null);
+    }
+
     room.users.delete(socket.id);
     if (room.users.size === 0) {
+        room.awareness.destroy();
+        room.ydoc.destroy();
         rooms.delete(roomId);
     } else {
         io.to(roomId).emit("user-Left", [...room.users.values()]);
@@ -73,6 +91,8 @@ io.on('connection', (socket) => {
     socket.currentRoom = null;
     socket.currentUser = null;
     socket.lastCompileTime = 0;
+    socket.data = socket.data || {};
+    socket.data.awarenessIds = new Set();
 
     socket.on("join", ({ roomId, userName }) => {
         if (typeof roomId !== 'string' || roomId.trim() === '') return;
@@ -89,9 +109,45 @@ io.on('connection', (socket) => {
         socket.join(cleanRoomId);
 
         if (!rooms.has(cleanRoomId)) {
+            const ydoc = new YDoc();
+            ydoc.clientID = 1;
+            ydoc.getText("monaco").insert(0, "// Start your code here");
+            const awareness = new Awareness(ydoc);
+            awareness.setLocalState(null);
+
+            ydoc.on("update", (update, origin) => {
+                if (origin && typeof origin.to === 'function') {
+                    origin.to(cleanRoomId).emit("yjs-update", update);
+                } else {
+                    io.to(cleanRoomId).emit("yjs-update", update);
+                }
+            });
+
+            awareness.on("update", ({ added, updated, removed }, origin) => {
+                // Track announced clientIDs on the ORIGIN socket so leave() can
+                // remove exactly this socket's states when it disconnects.
+                if (origin && origin.data) {
+                    const tracked = new Set(origin.data.awarenessIds || []);
+                    for (const id of [...added, ...updated]) tracked.add(id);
+                    for (const id of removed) tracked.delete(id);
+                    origin.data.awarenessIds = tracked;
+                }
+                const encoded = encodeAwarenessUpdate(
+                    awareness,
+                    [...added, ...updated, ...removed]
+                );
+                if (origin && typeof origin.to === 'function') {
+                    origin.to(cleanRoomId).emit("awareness-update", encoded);
+                } else {
+                    // origin === null (leave()-triggered removal): tell everyone.
+                    io.to(cleanRoomId).emit("awareness-update", encoded);
+                }
+            });
+
             rooms.set(cleanRoomId, {
                 users: new Map(),
-                code: "// Start your code here",
+                ydoc,
+                awareness,
                 language: "javascript",
                 running: false,
             });
@@ -99,10 +155,45 @@ io.on('connection', (socket) => {
 
         const room = rooms.get(cleanRoomId);
         room.users.set(socket.id, cleanUserName);
-        socket.emit("codeUpdate", room.code);
+
+        socket.emit("yjs-init", {
+            doc: encodeStateAsUpdate(room.ydoc),
+            awareness: encodeAwarenessUpdate(
+                room.awareness,
+                [...room.awareness.getStates().keys()]
+            ),
+        });
         socket.emit("languageChange", room.language);
 
         io.to(cleanRoomId).emit("user-joined", [...room.users.values()]);
+    });
+
+    socket.on("yjs-update", (data) => {
+        const roomId = socket.currentRoom;
+        if (!roomId || !rooms.has(roomId)) return;
+        const room = rooms.get(roomId);
+        if (data && typeof data.length === 'number' && data.length > MAX_UPDATE_BYTES) return;
+        const buf = new Uint8Array(data);
+        if (buf.length > MAX_UPDATE_BYTES) return;
+        try {
+            applyUpdate(room.ydoc, buf, socket);
+        } catch (err) {
+            console.error("yjs-update apply failed:", err.message);
+        }
+    });
+
+    socket.on("awareness-update", (data) => {
+        const roomId = socket.currentRoom;
+        if (!roomId || !rooms.has(roomId)) return;
+        const room = rooms.get(roomId);
+        if (data && typeof data.length === 'number' && data.length > MAX_UPDATE_BYTES) return;
+        const buf = new Uint8Array(data);
+        if (buf.length > MAX_UPDATE_BYTES) return;
+        try {
+            applyAwarenessUpdate(room.awareness, buf, socket);
+        } catch (err) {
+            console.error("awareness-update apply failed:", err.message);
+        }
     });
 
     socket.on("userTyping", () => {
@@ -120,12 +211,14 @@ io.on('connection', (socket) => {
         socket.to(roomId).emit("languageChange", language);
     });
 
-    socket.on("compileCode", async ({ code, input }) => {
+    socket.on("compileCode", async ({ input }) => {
         const roomId = socket.currentRoom;
         if (!roomId || !rooms.has(roomId)) return;
         const room = rooms.get(roomId);
 
         if (room.running) return;
+
+        const code = room.ydoc.getText("monaco").toString();
         if (typeof code !== 'string' || code.length > MAX_CODE) return;
 
         const now = Date.now();
@@ -160,16 +253,6 @@ io.on('connection', (socket) => {
     socket.on("leave-room", () => {
         leave(socket);
     });
-
-    socket.on("codeChange", ({ code }) => {
-        const roomId = socket.currentRoom;
-        if (!roomId || !rooms.has(roomId)) return;
-        if (typeof code !== 'string' || code.length > MAX_CODE) return;
-        const room = rooms.get(roomId);
-        room.code = code;
-        socket.to(roomId).emit("codeUpdate", code);
-    });
-    
 
 });
 
