@@ -35,21 +35,21 @@ const server = http.createServer(app);
 
 
 
-const url = `https://collaborate-code.onrender.com`;
-const interval = 30000;
+// const url = `https://collaborate-code.onrender.com`;
+// const interval = 30000;
 
-function reloadWebsite() {
-  axios
-    .get(url)
-    .then((response) => {
-      console.log("website reloded");
-    })
-    .catch((error) => {
-      console.error(`Error : ${error.message}`);
-    });
-}
+// function reloadWebsite() {
+//   axios
+//     .get(url)
+//     .then((response) => {
+//       console.log("website reloded");
+//     })
+//     .catch((error) => {
+//       console.error(`Error : ${error.message}`);
+//     });
+// }
 
-setInterval(reloadWebsite, interval);
+// setInterval(reloadWebsite, interval);
 
 const io= new Server(server, {
     cors: {
@@ -68,8 +68,8 @@ io.on('connection', (socket) => {
         // Leave the previous room first (only if the user was already in one)
         if(currentRoom && rooms.has(currentRoom)){
             socket.leave(currentRoom);
-            rooms.get(currentRoom).delete(currentUser);
-            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom)));
+            rooms.get(currentRoom).users.delete(currentUser);
+            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom).users));
         }
 
         // Join the new room
@@ -79,10 +79,11 @@ io.on('connection', (socket) => {
         socket.join(roomId);
 
         if(!rooms.has(roomId)){
-            rooms.set(roomId, new Set());
+            rooms.set(roomId, {users: new Set(),code: "// Start your code here"});
         }
-        rooms.get(roomId).add(userName);
-        io.to(roomId).emit("user-joined", Array.from(rooms.get(roomId)));
+        rooms.get(roomId).users.add(userName);
+        socket.emit("codeUpdate", rooms.get(roomId).code);
+        io.to(roomId).emit("user-joined", Array.from(rooms.get(currentRoom).users));
     });
 
     socket.on("userTyping", ({roomId, userName}) => {
@@ -109,21 +110,24 @@ io.on('connection', (socket) => {
     socket.on("disconnect", () => {
         console.log("User disconnected", socket.id);
         if(currentRoom && rooms.has(currentRoom)){
-            rooms.get(currentRoom).delete(currentUser);
-            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom)));
+            rooms.get(currentRoom).users.delete(currentUser);
+            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom).users));
         }
     });
 
     socket.on("leave-room", () => {
         if(currentRoom && rooms.has(currentRoom)){
             socket.leave(currentRoom);
-            rooms.get(currentRoom).delete(currentUser);
-            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom)));
+            rooms.get(currentRoom).users.delete(currentUser);
+            io.to(currentRoom).emit("user-Left", Array.from(rooms.get(currentRoom).users));
         }
         currentRoom = null;
         currentUser = null;
     });
     socket.on("codeChange", ({roomId, code}) => {
+        if(!rooms.has(roomId))
+            return;
+        rooms.get(roomId).code = code; 
         socket.to(roomId).emit("codeUpdate", code);
     });
     
