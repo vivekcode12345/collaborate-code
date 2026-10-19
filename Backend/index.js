@@ -20,7 +20,7 @@ async function runOnWandbox(language, code) {
         compiler,
         code,
         save: false,
-    }, { timeout: 30000 });
+    }, { timeout: 60000 });
     // Wandbox returns program_output on success, compiler_error on failure.
     const out = data.program_output || data.program_message
         || data.compiler_error || data.compiler_output || data.compiler_message
