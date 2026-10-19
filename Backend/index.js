@@ -94,7 +94,7 @@ io.on('connection', (socket) => {
         socket.to(roomId).emit("languageChange", language);
     });
 
-    socket.on("compileCode", async({code, roomId, language, version})=>{
+    socket.on("compileCode", async({code, roomId, language, version,input})=>{
         try {
             if(!rooms.has(roomId)) return;
             const output = await runOnWandbox(language, code);

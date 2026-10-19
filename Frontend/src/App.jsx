@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Editor } from '@monaco-editor/react'
 const socket = io('https://collaborate-code.onrender.com');
 import { useEffect } from 'react';
+import {v4 as uuidv4} from 'uuid';
 
 const App = () => {
   const [joined, setJoined] = useState(false);
@@ -92,10 +93,20 @@ const App = () => {
     socket.emit("languageChange", {roomId, language: newLanguage});
   };
 
+  const [userInput, setUserInput]= useState("");
+
+  const handleUserInput=(e)=>{
+    setUserInput(e.target.value);
+  };
+
   const runCode=()=>{
-    socket.emit("compileCode", {code, roomId, language, version});
+    socket.emit("compileCode", {code, roomId, language, version, input: userInput});
   }
 
+  const createRoomId=()=>{
+    const roomId = uuidv4();
+    setRoomId(roomId);
+  }
 
   const leaveRoom=()=>{
     socket.emit("leave-room");
@@ -114,6 +125,7 @@ const App = () => {
         placeholder="Room ID" 
         value={roomId} 
         onChange={(e) => setRoomId(e.target.value)} />
+        <button onClick={createRoomId}>Create Room</button>
 
         <input type="text" 
         placeholder="User Name" 
@@ -167,6 +179,7 @@ const App = () => {
             fontSize: 16,
           }}
         /> 
+        <textarea className="input-console" placeholder="Enter input for the program..." value={userInput} onChange={handleUserInput}/>
         <button className="run-btn" onClick={runCode}>Execute Code</button>
         <textarea className="output-area" value={output} readOnly placeholder="Output will appear here..."/>
       </div>
