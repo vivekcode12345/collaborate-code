@@ -25,6 +25,24 @@ const WANDBOX_COMPILERS = {
 const MAX_CODE = 100000;
 const MAX_UPDATE_BYTES = 200000;
 
+// --- Session replay recording limits ---
+const MAX_EVENTS = (() => {
+    const n = parseInt(process.env.REPLAY_MAX_EVENTS, 10);
+    return Number.isFinite(n) && n > 0 ? n : 20000;
+})();
+const MAX_RECORDING_BYTES = 5_000_000;
+const MAX_FINISHED = 30;
+const FINISHED_TTL_MS = 24 * 60 * 60 * 1000;
+// Per-IP rate limit for GET /api/replay/:roomId (20 requests / minute by default).
+const REPLAY_RATE_MAX = (() => {
+    const n = parseInt(process.env.REPLAY_RATE_MAX, 10);
+    return Number.isFinite(n) && n > 0 ? n : 20;
+})();
+const REPLAY_RATE_WINDOW_MS = (() => {
+    const n = parseInt(process.env.REPLAY_RATE_WINDOW_MS, 10);
+    return Number.isFinite(n) && n > 0 ? n : 60000;
+})();
+
 async function runOnWandbox(language, code, stdin = "") {
     const compiler = WANDBOX_COMPILERS[language];
     if (!compiler) throw new Error(`Language '${language}' not supported`);
@@ -44,6 +62,7 @@ async function runOnWandbox(language, code, stdin = "") {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 
 const port = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -57,6 +76,69 @@ const io = new Server(server, {
 });
 
 const rooms = new Map();
+// Finished recordings kept after a room is deleted, keyed by roomId.
+const finishedRecordings = new Map();
+
+function createRecording(roomId) {
+    return {
+        roomId,
+        startedAt: Date.now(),
+        endedAt: null,
+        truncated: false,
+        bytes: 0,
+        events: [],
+    };
+}
+
+function recordEvent(rec, ev) {
+    if (!rec || rec.truncated) return;
+    if (rec.events.length >= MAX_EVENTS) {
+        rec.truncated = true;
+        return;
+    }
+    let size = 0;
+    if (ev.k === 'doc') size = ev.d.length;
+    else if (ev.k === 'run') size = (ev.out || '').length;
+    else if (ev.k === 'lang') size = (ev.v || '').length;
+    else if (ev.k === 'join' || ev.k === 'leave') size = (ev.u || '').length;
+    if (rec.bytes + size > MAX_RECORDING_BYTES) {
+        rec.truncated = true;
+        return;
+    }
+    rec.bytes += size;
+    rec.events.push(ev);
+}
+
+function pruneFinishedRecordings() {
+    const now = Date.now();
+    for (const [key, rec] of finishedRecordings) {
+        const ts = rec.endedAt || rec.startedAt;
+        if (now - ts > FINISHED_TTL_MS) finishedRecordings.delete(key);
+    }
+    while (finishedRecordings.size > MAX_FINISHED) {
+        let oldestKey = null;
+        let oldestTs = Infinity;
+        for (const [key, rec] of finishedRecordings) {
+            const ts = rec.endedAt || rec.startedAt;
+            if (ts < oldestTs) {
+                oldestTs = ts;
+                oldestKey = key;
+            }
+        }
+        if (oldestKey === null) break;
+        finishedRecordings.delete(oldestKey);
+    }
+}
+
+function finalizeRecording(roomId, room) {
+    const rec = room.recording;
+    if (!rec) return;
+    rec.endedAt = Date.now();
+    room.recording = null;
+    // A newer session for the same roomId REPLACES the older one (Map.set overwrites).
+    finishedRecordings.set(roomId, rec);
+    pruneFinishedRecordings();
+}
 
 function leave(socket) {
     const roomId = socket.currentRoom;
@@ -74,9 +156,23 @@ function leave(socket) {
         removeAwarenessStates(room.awareness, ids, null);
     }
 
+    const userName = socket.currentUser;
     room.users.delete(socket.id);
+    if (room.recording && userName) {
+        recordEvent(room.recording, {
+            t: Date.now() - room.recording.startedAt,
+            k: 'leave',
+            u: userName,
+        });
+    }
     if (room.users.size === 0) {
         room.awareness.destroy();
+        // Detach the ydoc update listener so it cannot leak after destroy().
+        if (room.ydocUpdateHandler) {
+            room.ydoc.off('update', room.ydocUpdateHandler);
+            room.ydocUpdateHandler = null;
+        }
+        finalizeRecording(roomId, room);
         room.ydoc.destroy();
         rooms.delete(roomId);
     } else {
@@ -115,13 +211,30 @@ io.on('connection', (socket) => {
             const awareness = new Awareness(ydoc);
             awareness.setLocalState(null);
 
-            ydoc.on("update", (update, origin) => {
+            const recording = createRecording(cleanRoomId);
+            // FIRST event: full seed state at t=0 so replay starts from the seed text.
+            recordEvent(recording, {
+                t: 0,
+                k: 'doc',
+                d: Buffer.from(encodeStateAsUpdate(ydoc)).toString('base64'),
+            });
+            recordEvent(recording, { t: 0, k: 'lang', v: 'javascript' });
+
+            const ydocUpdateHandler = (update, origin) => {
+                // Guard: the room may already have been finalized/destroyed.
+                if (!rooms.has(cleanRoomId)) return;
+                recordEvent(recording, {
+                    t: Date.now() - recording.startedAt,
+                    k: 'doc',
+                    d: Buffer.from(update).toString('base64'),
+                });
                 if (origin && typeof origin.to === 'function') {
                     origin.to(cleanRoomId).emit("yjs-update", update);
                 } else {
                     io.to(cleanRoomId).emit("yjs-update", update);
                 }
-            });
+            };
+            ydoc.on("update", ydocUpdateHandler);
 
             awareness.on("update", ({ added, updated, removed }, origin) => {
                 // Track announced clientIDs on the ORIGIN socket so leave() can
@@ -150,11 +263,20 @@ io.on('connection', (socket) => {
                 awareness,
                 language: "javascript",
                 running: false,
+                recording,
+                ydocUpdateHandler,
             });
         }
 
         const room = rooms.get(cleanRoomId);
         room.users.set(socket.id, cleanUserName);
+        if (room.recording) {
+            recordEvent(room.recording, {
+                t: Date.now() - room.recording.startedAt,
+                k: 'join',
+                u: cleanUserName,
+            });
+        }
 
         socket.emit("yjs-init", {
             doc: encodeStateAsUpdate(room.ydoc),
@@ -196,18 +318,19 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on("userTyping", () => {
-        const roomId = socket.currentRoom;
-        if (!roomId || !rooms.has(roomId)) return;
-        socket.to(roomId).emit("userTyping", socket.currentUser);
-    });
-    
     socket.on("languageChange", ({ language }) => {
         const roomId = socket.currentRoom;
         if (!roomId || !rooms.has(roomId)) return;
         if (!WANDBOX_COMPILERS[language]) return;
         const room = rooms.get(roomId);
         room.language = language;
+        if (room.recording) {
+            recordEvent(room.recording, {
+                t: Date.now() - room.recording.startedAt,
+                k: 'lang',
+                v: language,
+            });
+        }
         socket.to(roomId).emit("languageChange", language);
     });
 
@@ -232,13 +355,31 @@ io.on('connection', (socket) => {
         room.running = true;
         io.to(roomId).emit("codeRunning");
 
+        const userName = socket.currentUser;
         try {
             const output = await runOnWandbox(room.language, code, input);
+            if (room.recording) {
+                recordEvent(room.recording, {
+                    t: Date.now() - room.recording.startedAt,
+                    k: 'run',
+                    u: userName,
+                    out: String(output).slice(0, 5000),
+                });
+            }
             io.to(roomId).emit("codeResponse", { run: { output } });
         } catch (err) {
             const msg = err?.response?.data?.message || err.message;
             console.error("compileCode failed:", msg);
-            io.to(roomId).emit("codeResponse", { run: { output: `Execution failed: ${msg}` } });
+            const out = `Execution failed: ${msg}`.slice(0, 5000);
+            if (room.recording) {
+                recordEvent(room.recording, {
+                    t: Date.now() - room.recording.startedAt,
+                    k: 'run',
+                    u: userName,
+                    out,
+                });
+            }
+            io.to(roomId).emit("codeResponse", { run: { output: out } });
         } finally {
             room.running = false;
         }
@@ -257,6 +398,42 @@ io.on('connection', (socket) => {
 });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Session replay endpoint — MUST be registered BEFORE the '/*splat' static fallback.
+const replayHits = new Map(); // ip -> [timestamps within the current window]
+app.get('/api/replay/:roomId', (req, res) => {
+    const ip = req.ip || (req.socket && req.socket.remoteAddress) || 'unknown';
+    const now = Date.now();
+    let hits = replayHits.get(ip) || [];
+    hits = hits.filter((ts) => now - ts < REPLAY_RATE_WINDOW_MS);
+    if (hits.length >= REPLAY_RATE_MAX) {
+        replayHits.set(ip, hits);
+        return res.status(429).json({ error: 'Too many requests' });
+    }
+    hits.push(now);
+    replayHits.set(ip, hits);
+
+    const { roomId } = req.params;
+    if (typeof roomId !== 'string' || roomId.length < 1 || roomId.length > 100) {
+        return res.status(400).json({ error: 'Invalid room id' });
+    }
+
+    // Live room first (endedAt stays null), then finished recordings.
+    let rec = null;
+    if (rooms.has(roomId)) rec = rooms.get(roomId).recording;
+    if (!rec) rec = finishedRecordings.get(roomId);
+    if (!rec) return res.status(404).json({ error: 'No recording found' });
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+        roomId: rec.roomId,
+        startedAt: rec.startedAt,
+        endedAt: rec.endedAt,
+        truncated: rec.truncated,
+        events: rec.events,
+    });
+});
+
 app.use(express.static(path.join(__dirname, '../Frontend/dist')));
 
 app.get('/*splat', (req, res) => {

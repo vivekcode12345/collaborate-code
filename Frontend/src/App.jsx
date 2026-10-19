@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Editor } from '@monaco-editor/react'
 import { createSession } from './yjsProvider'
 import { MonacoBinding } from 'y-monaco';
+import Replay from './Replay'
 
 import './monacoSetup'
 
@@ -35,7 +36,7 @@ function escapeCssString(str) {
     return String(str).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\A ');
 }
 
-const App = () => {
+const LiveApp = () => {
   const [joined, setJoined] = useState(false);
   const [roomId, setRoomId] = useState('');
   const [userName, setUserName] = useState('');
@@ -45,6 +46,7 @@ const App = () => {
   const [output, setOutput] = useState("");
   const [userInput, setUserInput] = useState("");
   const [running, setRunning] = useState(false);
+  const [replayInput, setReplayInput] = useState('');
 
   const joinInfo = useRef(null);
   const sessionRef = useRef(null);
@@ -158,6 +160,12 @@ const App = () => {
     setTimeout(() => setCopySuccess(""), 2000); // Clear the message after 2 seconds
   };
 
+  const copyReplayLink=()=>{
+    navigator.clipboard.writeText(`${window.location.origin}/?replay=${roomId}`);
+    setCopySuccess("Copied!");
+    setTimeout(() => setCopySuccess(""), 2000);
+  };
+
   const handleLanguageChange=(e)=> {
     const newLanguage = e.target.value;
     setLanguage(newLanguage);
@@ -226,6 +234,17 @@ const App = () => {
         value={userName} 
         onChange={(e) => setUserName(e.target.value)} />
         <button onClick={joinRoom}>Join</button>
+
+        <div className="replay-section">
+          <h3>Watch a replay</h3>
+          <input type="text"
+            placeholder="Room ID"
+            value={replayInput}
+            onChange={(e) => setReplayInput(e.target.value)} />
+          <button onClick={() => { if (replayInput) window.location.href = `/?replay=${encodeURIComponent(replayInput)}`; }}>
+            Watch Replay
+          </button>
+        </div>
       </div>
     </div>
   }
@@ -237,6 +256,9 @@ const App = () => {
           <h2>Code Room: {roomId}</h2>
           <button onClick={copyRoomId} className="copy-button">
             Copy Id
+          </button>
+          <button onClick={copyReplayLink} className="copy-button">
+            Copy replay link
           </button>
           {copySuccess && <span className="copy-success">{copySuccess}</span>}
         </div>
@@ -299,5 +321,13 @@ const App = () => {
     </div>
   );
 }
+
+// Replay mode: ?replay=<roomId> renders the Replay screen instead of the join flow.
+const replayRoomId = new URLSearchParams(window.location.search).get('replay');
+
+const App = () => {
+  if (replayRoomId) return <Replay roomId={replayRoomId} />;
+  return <LiveApp />;
+};
 
 export default App;
