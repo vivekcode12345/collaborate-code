@@ -1,36 +1,14 @@
 import './App.css'
-import io from 'socket.io-client'
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Editor } from '@monaco-editor/react'
 import { createSession } from './yjsProvider'
 import { MonacoBinding } from 'y-monaco';
 import Replay from './Replay'
+import Interview from './Interview'
+import socket from './socket'
+import { TEMPLATES, isDefaultTemplate } from './templates'
 
 import './monacoSetup'
-
-const socket = io(import.meta.env.VITE_SOCKET_URL || '/');
-
-const TEMPLATES = {
-    javascript: `// Hello World
-console.log("Hello, World!");`,
-    python: `# Hello World
-print("Hello, World!")`,
-    java: `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, World!");
-    }
-}`,
-    cpp: `#include <iostream>
-
-int main() {
-    std::cout << "Hello, World!" << std::endl;
-    return 0;
-}`,
-};
-
-const isDefaultTemplate = (code) => {
-    return Object.values(TEMPLATES).includes(code) || code.startsWith("// Start");
-};
 
 function escapeCssString(str) {
     return String(str).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\A ');
@@ -236,6 +214,13 @@ const LiveApp = () => {
         <button onClick={joinRoom}>Join</button>
 
         <div className="replay-section">
+          <h3>Interview mode</h3>
+          <button onClick={() => { window.location.href = '/?interview=1'; }}>
+            Start an interview
+          </button>
+        </div>
+
+        <div className="replay-section">
           <h3>Watch a replay</h3>
           <input type="text"
             placeholder="Room ID"
@@ -323,10 +308,15 @@ const LiveApp = () => {
 }
 
 // Replay mode: ?replay=<roomId> renders the Replay screen instead of the join flow.
-const replayRoomId = new URLSearchParams(window.location.search).get('replay');
+// Interview mode: ?interview=1 renders the interview screen (a real page load, so
+// the collaboration socket/session is never shared with the interview one).
+const appParams = new URLSearchParams(window.location.search);
+const replayRoomId = appParams.get('replay');
+const interviewMode = appParams.get('interview') === '1';
 
 const App = () => {
   if (replayRoomId) return <Replay roomId={replayRoomId} />;
+  if (interviewMode) return <Interview />;
   return <LiveApp />;
 };
 

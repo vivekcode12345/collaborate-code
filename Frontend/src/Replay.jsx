@@ -7,7 +7,7 @@ import './App.css';
 
 const IDLE_GAP_MAX = 2000;
 const SPEEDS = [1, 2, 4, 8];
-const MARKER_KINDS = new Set(['join', 'leave', 'lang', 'run']);
+const MARKER_KINDS = new Set(['join', 'leave', 'lang', 'run', 'mark']);
 
 function base64ToBytes(b64) {
   const bin = atob(b64);
@@ -50,6 +50,8 @@ function describeEvent(ev) {
       return `Language → ${ev.v}`;
     case 'run':
       return `${ev.u} ran the code`;
+    case 'mark':
+      return ev.label || 'mark';
     default:
       return ev.k;
   }
