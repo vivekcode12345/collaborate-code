@@ -1,0 +1,23 @@
+.cc-home { position: relative; min-height: 100vh; overflow: hidden; background: var(--bg); }
+.cc-home::before, .cc-home::after { position: absolute; width: 42vw; height: 42vw; border-radius: 50%; background: var(--accent); content: ""; filter: blur(90px); opacity: .13; pointer-events: none; }
+.cc-home::before { top: -18vw; left: -12vw; animation: cc-drift 16s ease-in-out infinite alternate; }
+.cc-home::after { right: -14vw; bottom: -20vw; background: var(--accent-2); animation: cc-drift 20s ease-in-out infinite alternate-reverse; }
+.cc-home-inner { position: relative; z-index: 1; width: min(1180px, calc(100% - 40px)); margin: auto; padding: var(--space-6) 0 var(--space-5); }
+.cc-home-topbar { display: flex; align-items: center; justify-content: space-between; }
+.cc-hero { max-width: 760px; padding: 90px 0 52px; }
+.cc-hero h1 { margin: 0 0 var(--space-4); font-size: clamp(2.4rem, 6vw, 5rem); line-height: 1; letter-spacing: -.06em; }
+.cc-hero p { max-width: 650px; margin: 0; color: var(--text-muted); font-size: 1.08rem; line-height: 1.6; }
+.cc-home-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+.cc-home-card { display: grid; gap: var(--space-4); padding: var(--space-5); }
+.cc-home-card h2 { margin: 0; font-size: 1.08rem; }
+.cc-home-card p { margin: -8px 0 0; color: var(--text-muted); font-size: .86rem; line-height: 1.5; }
+.cc-field-error { color: var(--danger); font-size: .78rem; }
+.cc-feature-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); margin: var(--space-7) 0; }
+.cc-feature { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); color: var(--text-muted); font-size: .82rem; }
+.cc-feature svg { flex: 0 0 auto; color: var(--accent); }
+.cc-footer { color: var(--text-muted); font-size: .78rem; text-align: center; }
+.cc-footer a { color: var(--accent-2); }
+@keyframes cc-drift { to { transform: translate(7vw, 4vw) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .cc-home::before, .cc-home::after { animation: none; } }
+@media (max-width: 850px) { .cc-home-grid, .cc-feature-strip { grid-template-columns: 1fr 1fr; } .cc-hero { padding-top: 60px; } }
+@media (max-width: 560px) { .cc-home-inner { width: min(100% - 24px, 1180px); } .cc-home-grid, .cc-feature-strip { grid-template-columns: 1fr; } .cc-hero { padding: 50px 0 32px; } }

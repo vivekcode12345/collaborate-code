@@ -27,8 +27,10 @@ export function updateRemoteCursorStyles(session) {
   font-size: 11px;
   padding: 1px 4px;
   color: #fff;
+  font-family: Inter, system-ui, sans-serif;
   background: ${color};
-  border-radius: 3px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
   white-space: nowrap;
   z-index: 100;
   pointer-events: none;

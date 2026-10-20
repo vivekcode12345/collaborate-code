@@ -5,19 +5,9 @@ import {
   encodeAwarenessUpdate,
 } from 'y-protocols/awareness';
 import { applyUpdate, encodeStateAsUpdate } from 'yjs';
+import { COLLABORATE_COLORS, colorForName } from './colors';
 
-const COLORS = [
-  '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db',
-  '#9b59b6', '#1abc9c', '#e91e63', '#ff9800', '#673ab7',
-];
-
-function colorForName(name) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  }
-  return COLORS[Math.abs(hash) % COLORS.length];
-}
+export { COLLABORATE_COLORS, colorForName };
 
 export function createSession(socket, userName) {
   const doc = new YDoc();
