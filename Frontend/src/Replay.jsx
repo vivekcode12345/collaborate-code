@@ -358,12 +358,12 @@ const Replay = ({ roomId }) => {
           {markerEvents.map((m) => (
             <div
               key={m.idx}
-              className={
+              className={`${m.event.k === 'mark' ? 'replay-event-mark ' : ''}${
                 markerEvents[currentMarker] &&
                 markerEvents[currentMarker].idx === m.idx
                   ? 'replay-event current'
                   : 'replay-event'
-              }
+              }`}
               onClick={() => seek(m.ct)}
             >
               <span className="replay-event-t">{formatTime(m.ct)}</span>
@@ -387,6 +387,5 @@ const Replay = ({ roomId }) => {
 };
 
 export default Replay;
-
 
 

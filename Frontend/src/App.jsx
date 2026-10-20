@@ -7,12 +7,9 @@ import Replay from './Replay'
 import Interview from './Interview'
 import socket from './socket'
 import { TEMPLATES, isDefaultTemplate } from './templates'
+import { updateRemoteCursorStyles, removeRemoteCursorStyles } from './remoteCursors'
 
 import './monacoSetup'
-
-function escapeCssString(str) {
-    return String(str).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\A ');
-}
 
 const LiveApp = () => {
   const [joined, setJoined] = useState(false);
@@ -25,58 +22,16 @@ const LiveApp = () => {
   const [userInput, setUserInput] = useState("");
   const [running, setRunning] = useState(false);
   const [replayInput, setReplayInput] = useState('');
+  const [interviewName, setInterviewName] = useState('');
+  const [interviewError, setInterviewError] = useState('');
 
   const joinInfo = useRef(null);
   const sessionRef = useRef(null);
   const bindingRef = useRef(null);
 
-  const updateRemoteCursorStyles = useCallback(() => {
-    const session = sessionRef.current;
-    if (!session) return;
-    const styles = [];
-    session.awareness.getStates().forEach((state, clientID) => {
-      if (clientID === session.doc.clientID) return;
-      const user = state?.user;
-      const color = user?.color || '#e74c3c';
-      const name = escapeCssString(user?.name || 'User');
-      styles.push(`
-.yRemoteSelection-${clientID} { background-color: ${color}5a !important; }
-.yRemoteSelectionHead-${clientID} {
-  position: absolute;
-  border-left: 2px solid ${color};
-  height: 100%;
-  box-sizing: border-box;
-  z-index: 100;
-}
-.yRemoteSelectionHead-${clientID}::before {
-  content: "${name}";
-  position: absolute;
-  top: -1.4em;
-  left: -2px;
-  font-size: 11px;
-  padding: 1px 4px;
-  color: #fff;
-  background: ${color};
-  border-radius: 3px;
-  white-space: nowrap;
-  z-index: 100;
-  pointer-events: none;
-}
-      `);
-    });
-    let el = document.getElementById('remote-cursor-styles');
-    if (!el) {
-      el = document.createElement('style');
-      el.id = 'remote-cursor-styles';
-      document.head.appendChild(el);
-    }
-    el.textContent = styles.join('\n');
+  const refreshRemoteCursorStyles = useCallback(() => {
+    updateRemoteCursorStyles(sessionRef.current);
   }, []);
-
-  function removeRemoteCursorStyles() {
-    const el = document.getElementById('remote-cursor-styles');
-    if (el) el.remove();
-  }
 
   useEffect(() => {
     socket.on("user-joined", (usersList) => {
@@ -126,7 +81,7 @@ const LiveApp = () => {
       const info = { roomId, userName };
       joinInfo.current = info;
       sessionRef.current = createSession(socket, userName);
-      sessionRef.current.awareness.on('change', updateRemoteCursorStyles);
+      sessionRef.current.awareness.on('change', refreshRemoteCursorStyles);
       socket.emit("join", info);
       setJoined(true);
     }
@@ -174,6 +129,24 @@ const LiveApp = () => {
     setRoomId(id);
   }
 
+  const createInterview = () => {
+    const name = interviewName.trim();
+    if (!name) {
+      setInterviewError('Enter your name to create an interview.');
+      return;
+    }
+    setInterviewError('');
+    socket.emit('create-interview', { userName: name }, (ack) => {
+      if (!ack?.ok) {
+        setInterviewError(ack?.error || 'Could not create interview.');
+        return;
+      }
+      localStorage.setItem(`interview-key:${ack.roomId}`, ack.interviewerKey);
+      localStorage.setItem(`interview-name:${ack.roomId}`, name);
+      window.location.href = `/?interview=${encodeURIComponent(ack.roomId)}`;
+    });
+  };
+
   const leaveRoom=()=>{
     socket.emit("leave-room");
     setJoined(false);
@@ -188,7 +161,7 @@ const LiveApp = () => {
       bindingRef.current = null;
     }
     if (sessionRef.current) {
-      sessionRef.current.awareness.off('change', updateRemoteCursorStyles);
+      sessionRef.current.awareness.off('change', refreshRemoteCursorStyles);
       sessionRef.current.destroy();
       sessionRef.current = null;
     }
@@ -215,9 +188,14 @@ const LiveApp = () => {
 
         <div className="replay-section">
           <h3>Interview mode</h3>
-          <button onClick={() => { window.location.href = '/?interview=1'; }}>
-            Start an interview
-          </button>
+          <input
+            type="text"
+            placeholder="Your name"
+            value={interviewName}
+            onChange={(e) => setInterviewName(e.target.value)}
+          />
+          <button onClick={createInterview}>Create Interview</button>
+          {interviewError && <div className="iv-error">{interviewError}</div>}
         </div>
 
         <div className="replay-section">
@@ -288,7 +266,7 @@ const LiveApp = () => {
             );
             bindingRef.current = binding;
             // Refresh remote cursor styles now that decorations can render.
-            updateRemoteCursorStyles();
+            refreshRemoteCursorStyles();
             return () => {
               if (bindingRef.current) {
                 bindingRef.current.destroy();
@@ -312,11 +290,11 @@ const LiveApp = () => {
 // the collaboration socket/session is never shared with the interview one).
 const appParams = new URLSearchParams(window.location.search);
 const replayRoomId = appParams.get('replay');
-const interviewMode = appParams.get('interview') === '1';
+const interviewMode = appParams.get('interview');
 
 const App = () => {
   if (replayRoomId) return <Replay roomId={replayRoomId} />;
-  if (interviewMode) return <Interview />;
+  if (interviewMode) return <Interview roomId={interviewMode} />;
   return <LiveApp />;
 };
 

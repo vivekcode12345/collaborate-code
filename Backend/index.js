@@ -27,6 +27,18 @@ const WANDBOX_COMPILERS = {
 const MAX_CODE = 100000;
 const MAX_UPDATE_BYTES = 200000;
 
+function toUpdateBytes(data) {
+    if (data instanceof Uint8Array) return data;
+    if (data instanceof ArrayBuffer) return new Uint8Array(data);
+    if (ArrayBuffer.isView(data)) {
+        return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    }
+    if (Array.isArray(data) && data.every((value) => Number.isInteger(value) && value >= 0 && value <= 255)) {
+        return Uint8Array.from(data);
+    }
+    return null;
+}
+
 // --- Session replay recording limits ---
 const MAX_EVENTS = (() => {
     const n = parseInt(process.env.REPLAY_MAX_EVENTS, 10);
@@ -190,6 +202,7 @@ const JUDGE_TIMEOUT_MS = (() => {
 const MAX_FINISHED_INTERVIEWS = 30;
 const FINISHED_INTERVIEW_TTL_MS = 24 * 60 * 60 * 1000;
 const ALLOWED_DURATIONS_MIN = [15, 30, 45, 60, 90];
+const MAX_INTERVIEW_DURATION_MS = Math.max(...ALLOWED_DURATIONS_MIN) * 60 * 1000;
 const ALLOW_SHORT = process.env.INTERVIEW_ALLOW_SHORT === '1';
 
 function createRecording(roomId) {
@@ -1038,7 +1051,11 @@ io.on('connection', (socket) => {
             if (typeof payload.durationMin === 'number' && Number.isFinite(payload.durationMin)) {
                 if (!ALLOWED_DURATIONS_MIN.includes(payload.durationMin)) return;
                 durationMs = payload.durationMin * 60 * 1000;
-            } else if (typeof payload.durationMs === 'number' && Number.isFinite(payload.durationMs)) {
+            } else if (
+                typeof payload.durationMs === 'number'
+                && Number.isSafeInteger(payload.durationMs)
+                && payload.durationMs <= MAX_INTERVIEW_DURATION_MS
+            ) {
                 if (ALLOW_SHORT) {
                     if (payload.durationMs < 2000) return;
                     durationMs = payload.durationMs;
@@ -1179,9 +1196,8 @@ socket.on("yjs-update", (data) => {
             const iv = room.interview;
             const isCandidate = iv.candidateSocketId === socket.id;
             if (isCandidate && iv.status !== 'running') {
-                if (data && typeof data.length === 'number' && data.length > MAX_UPDATE_BYTES) return;
-                const buf = new Uint8Array(data);
-                if (buf.length > MAX_UPDATE_BYTES) return;
+                const buf = toUpdateBytes(data);
+                if (!buf || buf.length > MAX_UPDATE_BYTES) return;
                 const before = room.ydoc.getText('monaco').toString();
                 try {
                     // Apply AND relay. The update must reach every peer: if the
@@ -1200,9 +1216,8 @@ socket.on("yjs-update", (data) => {
                 return;
             }
         }
-        if (data && typeof data.length === 'number' && data.length > MAX_UPDATE_BYTES) return;
-        const buf = new Uint8Array(data);
-        if (buf.length > MAX_UPDATE_BYTES) return;
+        const buf = toUpdateBytes(data);
+        if (!buf || buf.length > MAX_UPDATE_BYTES) return;
         try {
             applyUpdate(room.ydoc, buf, socket);
         } catch (err) {
@@ -1214,9 +1229,8 @@ socket.on("yjs-update", (data) => {
         const roomId = socket.currentRoom;
         if (!roomId || !rooms.has(roomId)) return;
         const room = rooms.get(roomId);
-        if (data && typeof data.length === 'number' && data.length > MAX_UPDATE_BYTES) return;
-        const buf = new Uint8Array(data);
-        if (buf.length > MAX_UPDATE_BYTES) return;
+        const buf = toUpdateBytes(data);
+        if (!buf || buf.length > MAX_UPDATE_BYTES) return;
         try {
             applyAwarenessUpdate(room.awareness, buf, socket);
         } catch (err) {

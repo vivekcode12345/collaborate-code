@@ -4,6 +4,374 @@
   box-sizing: border-box;
 }
 
+/* Interview entry and running workspace. */
+.iv-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f0f2f5;
+}
+
+.iv-topbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 52px;
+  padding: 0.6rem 1rem;
+  background: #2c3e50;
+  color: #ecf0f1;
+}
+
+.iv-topbar span {
+  color: #bdc3c7;
+  font-size: 0.85rem;
+}
+
+.iv-topbar .iv-countdown {
+  margin-left: auto;
+  color: #ecf0f1;
+  font-family: monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.iv-topbar .iv-countdown.urgent {
+  color: #e74c3c;
+}
+
+.iv-topbar select,
+.iv-topbar button,
+.iv-lobby button,
+.iv-card button {
+  padding: 0.45rem 0.75rem;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.iv-topbar select {
+  background: #34495e;
+  color: #fff;
+}
+
+.iv-topbar button,
+.iv-lobby button,
+.iv-card button {
+  background: #3498db;
+  color: #fff;
+}
+
+.iv-topbar button:hover,
+.iv-lobby button:hover,
+.iv-card button:hover {
+  background: #2980b9;
+}
+
+.iv-lobby,
+.iv-running {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.iv-lobby {
+  gap: 1.5rem;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.iv-lobby > section:first-child {
+  width: 35%;
+  min-width: 280px;
+}
+
+.iv-lobby label {
+  display: block;
+  margin: 1rem 0;
+  color: #555;
+}
+
+.iv-lobby label select {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.6rem;
+}
+
+.iv-lobby button {
+  margin: 0.35rem 0.35rem 0.35rem 0;
+}
+
+.iv-problem-panel {
+  width: 35%;
+  min-width: 280px;
+  padding: 1rem;
+  overflow-y: auto;
+  background: #2c3e50;
+  color: #ecf0f1;
+}
+
+.iv-problem-panel h2 {
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+
+.iv-problem-panel > pre {
+  margin: 1rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.iv-problem-panel .iv-sample {
+  margin-top: 0.5rem;
+}
+
+.iv-running .iv-problem-panel {
+  flex: 0 0 35%;
+}
+
+.iv-editor-area {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0.5rem;
+  background: #fff;
+}
+
+.iv-editor-area > .monaco-editor,
+.iv-editor-area > div:first-child {
+  flex: 1;
+  min-height: 0;
+}
+
+.iv-participants {
+  width: 170px;
+  padding: 1rem;
+  background: #34495e;
+  color: #ecf0f1;
+}
+
+.iv-participants h3 {
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.iv-participants div {
+  padding: 0.35rem 0;
+  font-size: 0.85rem;
+}
+
+.iv-reconnecting {
+  position: fixed;
+  top: 0.5rem;
+  left: 50%;
+  z-index: 10;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  background: #e67e22;
+  color: #fff;
+  transform: translateX(-50%);
+}
+
+.iv-candidate-actions,
+.iv-submissions-panel {
+  flex-shrink: 0;
+  padding: 0.6rem;
+  border-top: 1px solid #ddd;
+  background: #f7f9fa;
+}
+
+.iv-candidate-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.iv-candidate-actions .iv-results-panel {
+  flex-basis: 100%;
+}
+
+.iv-rejection {
+  color: #c0392b;
+  font-size: 0.8rem;
+}
+
+.iv-results-panel {
+  color: #333;
+}
+
+.iv-result-card {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.iv-test-verdicts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.iv-submission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.iv-submission-row {
+  display: grid;
+  grid-template-columns: 2rem 4rem 3rem 3rem 1fr;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.35rem;
+  border: 1px solid #d5dde5;
+  border-radius: 3px;
+  background: #fff;
+  color: #333;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.iv-submission-row.selected {
+  border-color: #3498db;
+  background: #eaf4fb;
+}
+
+.iv-submission-details {
+  max-height: 260px;
+  margin-top: 0.5rem;
+  overflow-y: auto;
+}
+
+.iv-code-preview,
+.iv-hidden-detail pre {
+  max-height: 180px;
+  margin: 0.35rem 0;
+  padding: 0.5rem;
+  overflow: auto;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.iv-test-detail {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.iv-test-detail summary {
+  cursor: pointer;
+}
+
+.iv-hidden-detail {
+  padding: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.iv-ended {
+  min-height: 100vh;
+  background: #f0f2f5;
+}
+
+.iv-ended-content {
+  display: flex;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.iv-ended-summary,
+.iv-report-panel {
+  flex: 1;
+  min-width: 0;
+  padding: 1rem;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.iv-ended-summary button,
+.iv-report-actions button,
+.iv-report-actions a {
+  display: inline-block;
+  margin: 1rem 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 4px;
+  background: #3498db;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.iv-final-verdict {
+  margin-top: 1rem;
+  font-size: 1rem;
+}
+
+.iv-report-actions {
+  margin-bottom: 1rem;
+}
+
+.replay-event-mark {
+  color: #f1c40f;
+  border-left: 3px solid #f1c40f;
+}
+
+@media print {
+  .iv-topbar button,
+  .iv-report-actions,
+  .iv-ended-summary button,
+  .iv-reconnecting {
+    display: none !important;
+  }
+
+  .iv-ended-content {
+    display: block;
+    max-width: none;
+  }
+
+  .iv-ended-summary,
+  .iv-report-panel {
+    box-shadow: none;
+  }
+}
+
+.iv-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: #f0f2f5;
+}
+
+.iv-card {
+  width: min(420px, 90vw);
+  padding: 2rem;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.iv-card button {
+  margin-top: 1rem;
+}
+
 body {
   font-family: "Roboto", "sans-serif";
   background: #f0f2f5;
