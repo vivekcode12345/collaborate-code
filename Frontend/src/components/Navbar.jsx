@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, IconButton, Logo, ThemeToggle } from './ui';
+import { createPortal } from 'react-dom';
+import { IconButton, Logo, ThemeToggle } from './ui';
 import { GithubIcon, MenuIcon, SearchIcon } from './Icons';
 import CommandPalette from './CommandPalette';
 
@@ -27,8 +28,10 @@ export default function Navbar({ theme, toggle, onGenerate, focusName, sectionRe
   const scrollTo = useCallback((id) => {
     const target = sectionRefs[id]?.current;
     if (!target) return;
-    target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-    window.setTimeout(() => target.focus(), 0);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 96, behavior: reducedMotion ? 'auto' : 'smooth' });
+    window.history.replaceState(null, '', `#${id}`);
+    target.focus({ preventScroll: true });
     setMobileOpen(false);
   }, [sectionRefs]);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
@@ -70,7 +73,7 @@ export default function Navbar({ theme, toggle, onGenerate, focusName, sectionRe
     const observers = LINKS.map(([, id]) => {
       const element = sectionRefs[id]?.current;
       if (!element) return null;
-      const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setActive(id); }, { rootMargin: '-25% 0px -60% 0px' });
+      const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setActive(id); }, { rootMargin: '-40% 0px -55% 0px' });
       observer.observe(element);
       return observer;
     });
@@ -92,7 +95,7 @@ export default function Navbar({ theme, toggle, onGenerate, focusName, sectionRe
     return () => { window.removeEventListener('resize', update); document.fonts?.removeEventListener('loadingdone', update); };
   }, [active, hovered]);
 
-  return <>
+  return createPortal(<>
     <a className="cc-skip-link" href="#main-content">Skip to content</a>
     <div className={`cc-navbar-wrap ${scrolled ? 'scrolled' : ''}`}>
       <header className="cc-navbar">
@@ -105,12 +108,11 @@ export default function Navbar({ theme, toggle, onGenerate, focusName, sectionRe
           <button className="cc-search-pill" type="button" ref={triggerRef} onClick={openPalette}><SearchIcon /><span>Quick actions</span><kbd>{shortcut}</kbd></button>
           <a className="cc-navbar-github" href={GITHUB_URL} target="_blank" rel="noopener noreferrer" aria-label="GitHub repository"><GithubIcon /></a>
           <ThemeToggle theme={theme} toggle={toggle} />
-          <Button variant="primary" className="cc-start-button" onClick={() => actions.interview()}>Start interview</Button>
           <IconButton label="Open navigation menu" aria-expanded={mobileOpen} aria-controls="cc-mobile-menu" onClick={() => setMobileOpen((value) => !value)}><MenuIcon /></IconButton>
         </div>
       </header>
-      {mobileOpen && <div className="cc-mobile-menu" id="cc-mobile-menu" ref={mobileMenuRef}><nav aria-label="Mobile primary">{LINKS.map(([label, id]) => <a href={`#${id}`} key={id} onClick={(event) => { event.preventDefault(); scrollTo(id); }}>{label}</a>)}</nav><button type="button" onClick={() => { setMobileOpen(false); openPalette(); }}><SearchIcon />Quick actions</button><a href={GITHUB_URL} target="_blank" rel="noopener noreferrer"><GithubIcon />GitHub repository</a><Button variant="primary" onClick={() => actions.interview()}>Start interview</Button></div>}
+      {mobileOpen && <div className="cc-mobile-menu" id="cc-mobile-menu" ref={mobileMenuRef}><nav aria-label="Mobile primary">{LINKS.map(([label, id]) => <a href={`#${id}`} key={id} onClick={(event) => { event.preventDefault(); scrollTo(id); }}>{label}</a>)}</nav><button type="button" onClick={() => { setMobileOpen(false); openPalette(); }}><SearchIcon />Quick actions</button><a href={GITHUB_URL} target="_blank" rel="noopener noreferrer"><GithubIcon />GitHub repository</a><div className="cc-mobile-theme"><span>Theme</span><ThemeToggle theme={theme} toggle={toggle} /></div></div>}
     </div>
     {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} triggerRef={triggerRef} actions={actions} />}
-  </>;
+  </>, document.body);
 }

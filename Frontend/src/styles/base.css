@@ -3,6 +3,9 @@
 *::after { box-sizing: border-box; }
 
 html, body, #root { min-height: 100%; }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; scroll-padding-top: 96px; }
+}
 
 body {
   margin: 0;

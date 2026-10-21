@@ -5,7 +5,7 @@
 }
 .cc-button { min-height: var(--control-height); padding: 0 var(--space-4); color: var(--text); background: var(--surface-3); font-weight: 600; }
 .cc-button:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--accent); }
-.cc-button.primary { color: var(--accent-contrast); background: var(--accent); border-color: var(--accent); }
+.cc-button.primary { color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: var(--accent-2); box-shadow: inset 0 1px rgb(255 255 255 / 24%), 0 4px 12px rgb(184 117 22 / 18%); }
 .cc-button.secondary { background: var(--surface-3); }
 .cc-button.ghost { background: transparent; }
 .cc-button.danger { color: #fff; background: var(--danger); border-color: var(--danger); }

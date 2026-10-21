@@ -73,6 +73,7 @@ export default function Home() {
   return <main className="cc-home" id="main-content">
     <div className="cc-home-inner">
       <Navbar theme={theme} toggle={toggle} onGenerate={createRoomId} focusName={(id) => (id === 'join' ? nameRef : id === 'interview' ? interviewNameRef : replayNameRef).current?.focus()} sectionRefs={sectionRefs} />
+      <div className="cc-navbar-spacer" aria-hidden="true" />
       <section className="cc-hero">
         <div className="cc-hero-copy"><h1 id="demo" ref={demoSectionRef} tabIndex="-1">Code together.<br /><span>Interview better.</span></h1><p>Real-time collaborative editor with live cursors, sandboxed execution, session replay and interview mode.</p></div>
         <HeroPreview />
