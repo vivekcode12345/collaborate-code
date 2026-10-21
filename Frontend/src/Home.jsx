@@ -63,7 +63,7 @@ export default function Home() {
         <HeroPreview />
       </section>
       <section className="cc-home-grid">
-        <Card className="cc-home-card">
+        <Card className="cc-home-card cc-home-card-join">
           <div className="cc-card-intro"><h2>Join or create a room</h2><p>Collaborate in a shared live coding room.</p></div>
           <form className="cc-card-form" onSubmit={join}>
             <Input label="Your name" value={name} onChange={(e) => setName(e.target.value)} ref={nameRef} placeholder="Ada Lovelace" error={joinTried && !name.trim() ? 'Enter your name' : undefined} />
@@ -71,16 +71,16 @@ export default function Home() {
             <Button variant="primary" type="submit">Join room</Button>
           </form>
         </Card>
-        <Card className="cc-home-card">
+        <Card className="cc-home-card cc-home-card-secondary">
           <div className="cc-card-intro"><h2>Start an interview</h2><p>Set up a structured coding interview with a private candidate link.</p></div>
-          <form className="cc-card-form" onSubmit={createInterview}>
+          <form className="cc-card-form cc-compact-form" onSubmit={createInterview}>
             <Input label="Your name" value={interviewName} onChange={(e) => { setInterviewName(e.target.value); setInterviewError(''); }} placeholder="Interviewer name" error={interviewTried && !interviewName.trim() ? 'Enter your name' : undefined} />
             {interviewError && <span className="cc-field-error">{interviewError}</span>}<Button variant="primary" type="submit">Create interview</Button>
           </form>
         </Card>
-        <Card className="cc-home-card">
+        <Card className="cc-home-card cc-home-card-secondary">
           <div className="cc-card-intro"><h2>Watch a replay</h2><p>Review a completed coding session from its room ID.</p></div>
-          <form className="cc-card-form" onSubmit={watch}>
+          <form className="cc-card-form cc-compact-form" onSubmit={watch}>
             <Input label="Room ID" value={replayRoom} onChange={(e) => setReplayRoom(e.target.value)} placeholder="room-id" error={replayTried && !replayRoom.trim() ? 'Enter a room ID' : undefined} />
             <Button type="submit">Watch replay</Button>
           </form>
