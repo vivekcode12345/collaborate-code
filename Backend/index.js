@@ -1429,5 +1429,5 @@ app.get('/*splat', (req, res) => {
 });
 
 server.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+    console.log(`PairPad server is running on port ${port}`);
 });

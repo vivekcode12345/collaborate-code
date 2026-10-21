@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Card, Input, Logo, ThemeToggle } from './components/ui';
 import { CodeIcon, CursorIcon, ReplayIcon } from './components/Icons';
+import HeroPreview from './components/HeroPreview';
 import { useTheme } from './hooks/useTheme';
 import socket from './socket';
 import './styles/home.css';
+
+const GITHUB_URL = import.meta.env.VITE_GITHUB_URL?.trim() || 'https://github.com/vivekcode12345';
 
 export default function Home() {
   const params = new URLSearchParams(window.location.search);
@@ -11,7 +14,9 @@ export default function Home() {
   const [name, setName] = useState('');
   const [interviewName, setInterviewName] = useState('');
   const [replayRoom, setReplayRoom] = useState('');
-  const [error, setError] = useState('');
+  const [joinTried, setJoinTried] = useState(false);
+  const [interviewTried, setInterviewTried] = useState(false);
+  const [replayTried, setReplayTried] = useState(false);
   const [interviewError, setInterviewError] = useState('');
   const nameRef = useRef(null);
   const { theme, toggle } = useTheme();
@@ -20,39 +25,74 @@ export default function Home() {
   useEffect(() => {
     if (presetRoom) nameRef.current?.focus();
   }, [presetRoom]);
+
   const createRoomId = () => setRoomId(Math.random().toString(36).substring(2, 10));
-  const join = () => {
-    if (!roomId.trim() || !name.trim()) {
-      setError(!roomId.trim() ? 'Enter a room ID.' : 'Enter your name.');
-      return;
-    }
+  const join = (event) => {
+    event.preventDefault();
+    setJoinTried(true);
+    if (!roomId.trim() || !name.trim()) return;
     window.location.href = `/?room=${encodeURIComponent(roomId.trim())}&name=${encodeURIComponent(name.trim())}`;
   };
-  const createInterview = () => {
+  const createInterview = (event) => {
+    event.preventDefault();
+    setInterviewTried(true);
     const userName = interviewName.trim();
-    if (!userName) { setInterviewError('Enter your name to create an interview.'); return; }
+    if (!userName) return;
     setInterviewError('');
     socket.emit('create-interview', { userName }, (ack) => {
-      if (!ack?.ok) { setInterviewError(ack?.error || 'Could not create interview.'); return; }
+      if (!ack?.ok) {
+        setInterviewError(ack?.error || 'Could not create interview.');
+        return;
+      }
       localStorage.setItem(`interview-key:${ack.roomId}`, ack.interviewerKey);
       localStorage.setItem(`interview-name:${ack.roomId}`, userName);
       window.location.href = `/?interview=${encodeURIComponent(ack.roomId)}`;
     });
   };
-  const watch = () => replayRoom.trim() && (window.location.href = `/?replay=${encodeURIComponent(replayRoom.trim())}`);
+  const watch = (event) => {
+    event.preventDefault();
+    setReplayTried(true);
+    if (replayRoom.trim()) window.location.href = `/?replay=${encodeURIComponent(replayRoom.trim())}`;
+  };
+
   return <main className="cc-home">
     <div className="cc-home-inner">
       <header className="cc-home-topbar"><Logo /><ThemeToggle theme={theme} toggle={toggle} /></header>
-      <section className="cc-hero"><h1>Code together.<br /><span style={{ color: 'var(--accent)' }}>Interview better.</span></h1><p>Real-time collaborative editor with live cursors, sandboxed execution, session replay and interview mode.</p></section>
+      <section className="cc-hero">
+        <div className="cc-hero-copy"><h1>Code together.<br /><span>Interview better.</span></h1><p>Real-time collaborative editor with live cursors, sandboxed execution, session replay and interview mode.</p></div>
+        <HeroPreview />
+      </section>
       <section className="cc-home-grid">
-        <Card className="cc-home-card"><h2>Join or create a room</h2><p>Collaborate in a shared live coding room.</p><Input label="Your name" value={name} onChange={(e) => { setName(e.target.value); setError(''); }} ref={nameRef} placeholder="Ada Lovelace" /><div style={{ display: 'flex', gap: 8 }}><Input label="Room ID" value={roomId} onChange={(e) => { setRoomId(e.target.value); setError(''); }} placeholder="room-id" /><Button type="button" size="small" onClick={createRoomId}>Generate</Button></div>{error && <span className="cc-field-error">{error}</span>}<Button variant="primary" onClick={join}>Join room</Button></Card>
-        <Card className="cc-home-card"><h2>Start an interview</h2><p>Set up a structured coding interview with a private candidate link.</p><Input label="Your name" value={interviewName} onChange={(e) => { setInterviewName(e.target.value); setInterviewError(''); }} placeholder="Interviewer name" />{interviewError && <span className="cc-field-error">{interviewError}</span>}<Button variant="primary" onClick={createInterview}>Create interview</Button></Card>
-        <Card className="cc-home-card"><h2>Watch a replay</h2><p>Review a completed coding session from its room ID.</p><Input label="Room ID" value={replayRoom} onChange={(e) => setReplayRoom(e.target.value)} placeholder="room-id" /><Button onClick={watch}>Watch replay</Button></Card>
+        <Card className="cc-home-card">
+          <div className="cc-card-intro"><h2>Join or create a room</h2><p>Collaborate in a shared live coding room.</p></div>
+          <form className="cc-card-form" onSubmit={join}>
+            <Input label="Your name" value={name} onChange={(e) => setName(e.target.value)} ref={nameRef} placeholder="Ada Lovelace" error={joinTried && !name.trim() ? 'Enter your name' : undefined} />
+            <div className="cc-room-id-row"><Input label="Room ID" value={roomId} onChange={(e) => setRoomId(e.target.value)} placeholder="room-id" error={joinTried && !roomId.trim() ? 'Enter a room ID' : undefined} /><Button type="button" size="small" onClick={createRoomId}>Generate</Button></div>
+            <Button variant="primary" type="submit">Join room</Button>
+          </form>
+        </Card>
+        <Card className="cc-home-card">
+          <div className="cc-card-intro"><h2>Start an interview</h2><p>Set up a structured coding interview with a private candidate link.</p></div>
+          <form className="cc-card-form" onSubmit={createInterview}>
+            <Input label="Your name" value={interviewName} onChange={(e) => { setInterviewName(e.target.value); setInterviewError(''); }} placeholder="Interviewer name" error={interviewTried && !interviewName.trim() ? 'Enter your name' : undefined} />
+            {interviewError && <span className="cc-field-error">{interviewError}</span>}<Button variant="primary" type="submit">Create interview</Button>
+          </form>
+        </Card>
+        <Card className="cc-home-card">
+          <div className="cc-card-intro"><h2>Watch a replay</h2><p>Review a completed coding session from its room ID.</p></div>
+          <form className="cc-card-form" onSubmit={watch}>
+            <Input label="Room ID" value={replayRoom} onChange={(e) => setReplayRoom(e.target.value)} placeholder="room-id" error={replayTried && !replayRoom.trim() ? 'Enter a room ID' : undefined} />
+            <Button type="submit">Watch replay</Button>
+          </form>
+        </Card>
       </section>
       <section className="cc-feature-strip">
-        <div className="cc-feature"><CodeIcon />CRDT live sync</div><div className="cc-feature"><CursorIcon />Live cursors</div><div className="cc-feature"><span>⚡</span>Sandboxed execution (JS, Python, C++, Java)</div><div className="cc-feature"><ReplayIcon />Session replay &amp; interview mode</div>
+        <div className="cc-feature"><CodeIcon /><div><strong>CRDT live sync</strong><span>Conflict-free edits via Yjs</span></div></div>
+        <div className="cc-feature"><CursorIcon /><div><strong>Live cursors</strong><span>See who is editing where</span></div></div>
+        <div className="cc-feature"><span className="cc-feature-symbol">⚡</span><div><strong>Sandboxed execution</strong><span>JavaScript, Python, C++, Java</span></div></div>
+        <div className="cc-feature"><ReplayIcon /><div><strong>Replay &amp; interviews</strong><span>Session replay, hidden-test judging</span></div></div>
       </section>
-      <footer className="cc-footer">Built for thoughtful collaboration · <a href="#">GitHub</a></footer>
+      <footer className="cc-footer">PairPad · Built with React, Yjs, Socket.io and Monaco · <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a></footer>
     </div>
   </main>;
 }
