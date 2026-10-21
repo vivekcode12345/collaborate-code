@@ -7,3 +7,6 @@ export const PlayIcon = (props) => icon(<path d="m8 5 11 7-11 7V5Z" />, props);
 export const CodeIcon = (props) => icon(<><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14" /></>, props);
 export const CursorIcon = (props) => icon(<><path d="M5 3v15l4-4 3 6 2-1-3-6h6L5 3Z" /></>, props);
 export const ReplayIcon = (props) => icon(<><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></>, props);
+export const SearchIcon = (props) => icon(<><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 5 5" /></>, props);
+export const GithubIcon = (props) => icon(<><path d="M15 22v-3.3c0-1.2-.4-2-1.1-2.5 3.6-.4 7.3-1.8 7.3-8a6.2 6.2 0 0 0-1.7-4.3 5.8 5.8 0 0 0-.1-4.2s-1.4-.4-4.5 1.7a15.7 15.7 0 0 0-8 0C3.8-.7 2.4-.3 2.4-.3a5.8 5.8 0 0 0-.1 4.2A6.2 6.2 0 0 0 .6 8.2c0 6.2 3.7 7.6 7.3 8-.7.5-1.1 1.3-1.1 2.5V22" /><path d="M6.8 18.7c-3.3 1.5-3.3-1.5-4.7-1.5" /></>, props);
+export const ChevronIcon = (props) => icon(<path d="m7 9 5 5 5-5" />, props);

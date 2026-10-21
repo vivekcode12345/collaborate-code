@@ -5,6 +5,7 @@ import './monacoSetup'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
+import './styles/navbar.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
