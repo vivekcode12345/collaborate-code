@@ -6,6 +6,7 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
 import './styles/navbar.css'
+import './styles/sections.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

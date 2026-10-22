@@ -17,6 +17,7 @@
 @keyframes cc-spin { to { transform: rotate(360deg); } }
 .cc-icon-button { display: inline-grid; width: 40px; height: 40px; place-items: center; color: var(--text); background: transparent; }
 .cc-icon-button:hover { background: var(--surface-3); }
+.cc-button:focus-visible, .cc-icon-button:focus-visible, .cc-input:focus-visible, .cc-select:focus-visible, .cc-textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(213 154 42 / 22%); }
 .cc-field { display: grid; gap: var(--space-2); color: var(--text-muted); font-size: .82rem; font-weight: 600; }
 .cc-input, .cc-select, .cc-textarea { width: 100%; color: var(--text); background: var(--surface-2); padding: 0 var(--space-3); }
 .cc-input, .cc-select { height: var(--control-height); }

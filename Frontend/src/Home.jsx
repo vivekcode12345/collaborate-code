@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Card, Input } from './components/ui';
-import { CodeIcon, CursorIcon, ReplayIcon } from './components/Icons';
 import HeroPreview from './components/HeroPreview';
+import Features from './components/Features';
+import HowItWorks from './components/HowItWorks';
+import CtaBand from './components/CtaBand';
 import { useTheme } from './hooks/useTheme';
 import socket from './socket';
 import Navbar from './components/Navbar';
@@ -23,14 +25,18 @@ export default function Home() {
   const interviewNameRef = useRef(null);
   const replayNameRef = useRef(null);
   const demoSectionRef = useRef(null);
+  const startSectionRef = useRef(null);
   const featuresSectionRef = useRef(null);
+  const howSectionRef = useRef(null);
   const joinHeadingRef = useRef(null);
   const interviewHeadingRef = useRef(null);
   const replayHeadingRef = useRef(null);
   const { theme, toggle } = useTheme();
   const sectionRefs = {
     demo: demoSectionRef,
+    start: startSectionRef,
     features: featuresSectionRef,
+    how: howSectionRef,
     interview: interviewHeadingRef,
     replay: replayHeadingRef,
     join: joinHeadingRef,
@@ -78,7 +84,7 @@ export default function Home() {
         <div className="cc-hero-copy"><h1 id="demo" ref={demoSectionRef} tabIndex="-1">Code together.<br /><span>Interview better.</span></h1><p>Real-time collaborative editor with live cursors, sandboxed execution, session replay and interview mode.</p></div>
         <HeroPreview />
       </section>
-      <section className="cc-home-grid">
+      <section className="cc-home-grid" id="start" ref={startSectionRef} tabIndex="-1">
         <Card className="cc-home-card cc-home-card-join">
           <div className="cc-card-intro"><h2 id="join" ref={joinHeadingRef} tabIndex="-1">Join or create a room</h2><p>Collaborate in a shared live coding room.</p></div>
           <form className="cc-card-form" onSubmit={join}>
@@ -102,12 +108,9 @@ export default function Home() {
           </form>
         </Card>
       </section>
-      <section className="cc-feature-strip" id="features" aria-label="Features" ref={featuresSectionRef} tabIndex="-1">
-        <div className="cc-feature"><CodeIcon /><div><strong>CRDT live sync</strong><span>Conflict-free edits via Yjs</span></div></div>
-        <div className="cc-feature"><CursorIcon /><div><strong>Live cursors</strong><span>See who is editing where</span></div></div>
-        <div className="cc-feature"><span className="cc-feature-symbol">⚡</span><div><strong>Sandboxed execution</strong><span>JavaScript, Python, C++, Java</span></div></div>
-        <div className="cc-feature"><ReplayIcon /><div><strong>Replay &amp; interviews</strong><span>Session replay, hidden-test judging</span></div></div>
-      </section>
+      <Features sectionRef={featuresSectionRef} />
+      <HowItWorks sectionRef={howSectionRef} />
+      <CtaBand sectionRefs={sectionRefs} focusName={(id) => (id === 'join' ? nameRef : interviewNameRef).current?.focus()} />
       <footer className="cc-footer">PairPad · Built with React, Yjs, Socket.io and Monaco · <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a></footer>
     </div>
   </main>;

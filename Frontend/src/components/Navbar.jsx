@@ -3,13 +3,14 @@ import { createPortal } from 'react-dom';
 import { IconButton, Logo, ThemeToggle } from './ui';
 import { GithubIcon, MenuIcon, SearchIcon } from './Icons';
 import CommandPalette from './CommandPalette';
+import { scrollToSection } from '../scrollTo';
 
 const GITHUB_URL = import.meta.env.VITE_GITHUB_URL?.trim() || 'https://github.com/vivekcode12345';
 const LINKS = [
   ['Demo', 'demo'],
+  ['Get started', 'start'],
   ['Features', 'features'],
-  ['Interview', 'interview'],
-  ['Replay', 'replay'],
+  ['How it works', 'how'],
 ];
 
 export default function Navbar({ theme, toggle, onGenerate, focusName, sectionRefs }) {
@@ -28,10 +29,7 @@ export default function Navbar({ theme, toggle, onGenerate, focusName, sectionRe
   const scrollTo = useCallback((id) => {
     const target = sectionRefs[id]?.current;
     if (!target) return;
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 96, behavior: reducedMotion ? 'auto' : 'smooth' });
-    window.history.replaceState(null, '', `#${id}`);
-    target.focus({ preventScroll: true });
+    scrollToSection(target, id);
     setMobileOpen(false);
   }, [sectionRefs]);
   const openPalette = useCallback(() => setPaletteOpen(true), []);

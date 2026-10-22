@@ -10,3 +10,6 @@ export const ReplayIcon = (props) => icon(<><path d="M3 12a9 9 0 1 0 3-6.7" /><p
 export const SearchIcon = (props) => icon(<><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 5 5" /></>, props);
 export const GithubIcon = (props) => icon(<><path d="M15 22v-3.3c0-1.2-.4-2-1.1-2.5 3.6-.4 7.3-1.8 7.3-8a6.2 6.2 0 0 0-1.7-4.3 5.8 5.8 0 0 0-.1-4.2s-1.4-.4-4.5 1.7a15.7 15.7 0 0 0-8 0C3.8-.7 2.4-.3 2.4-.3a5.8 5.8 0 0 0-.1 4.2A6.2 6.2 0 0 0 .6 8.2c0 6.2 3.7 7.6 7.3 8-.7.5-1.1 1.3-1.1 2.5V22" /><path d="M6.8 18.7c-3.3 1.5-3.3-1.5-4.7-1.5" /></>, props);
 export const ChevronIcon = (props) => icon(<path d="m7 9 5 5 5-5" />, props);
+export const ShieldIcon = (props) => icon(<><path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6l8-3Z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>, props);
+export const TerminalIcon = (props) => icon(<><path d="m4 6 6 6-6 6M13 18h7" /></>, props);
+export const TimerIcon = (props) => icon(<><circle cx="12" cy="13" r="7" /><path d="M12 9v4l2.5 1.5M9 2h6M12 2v4" /></>, props);

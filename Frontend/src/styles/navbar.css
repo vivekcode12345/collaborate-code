@@ -1,7 +1,7 @@
 .cc-skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; padding: 8px 12px; border-radius: 8px; background: var(--accent); color: #fff; transform: translateY(-150%); }
 .cc-skip-link:focus { transform: translateY(0); }
-.cc-hero h1, .cc-feature-strip, .cc-card-intro h2 { scroll-margin-top: 88px; }
-.cc-hero h1:focus-visible, .cc-feature-strip:focus-visible, .cc-card-intro h2:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 5px; border-radius: 4px; }
+.cc-hero h1, .cc-section, .cc-card-intro h2 { scroll-margin-top: 96px; }
+.cc-hero h1:focus-visible, .cc-section:focus-visible, .cc-card-intro h2:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 5px; border-radius: 4px; }
 .cc-navbar-wrap { position: fixed; top: 12px; left: 50%; z-index: 1000; width: min(1100px, calc(100% - 32px)); height: 56px; transform: translateX(-50%); transition: height 200ms ease, transform 200ms ease; }
 .cc-navbar-wrap.scrolled { height: 50px; transform: translateX(-50%) scale(.98); }
 .cc-navbar { display: flex; height: 56px; align-items: center; gap: 12px; padding: 0 12px 0 16px; border: 1px solid var(--border); border-radius: 999px; background: color-mix(in srgb, var(--surface) 78%, transparent); box-shadow: var(--shadow-md); backdrop-filter: blur(14px) saturate(160%); transition: height 200ms ease, box-shadow 200ms ease, border-color 200ms ease; }
@@ -9,8 +9,8 @@
 .cc-navbar-wrap.scrolled .cc-navbar { height: 50px; }
 .cc-navbar-links { position: relative; display: flex; align-items: center; gap: 2px; margin: auto; }
 .cc-navbar-links a { position: relative; z-index: 1; padding: 8px 12px; border-radius: 999px; color: var(--text); font-size: .8rem; font-weight: 600; letter-spacing: -.01em; text-decoration: none; }
-.cc-navbar-links a:hover, .cc-navbar-links a[aria-current="true"] { color: #11100d; }
-.cc-nav-highlight { position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, transparent); pointer-events: none; transition: transform 200ms ease, width 200ms ease; }
+.cc-navbar-links a:hover, .cc-navbar-links a[aria-current="true"] { color: var(--accent-ink); }
+.cc-nav-highlight { position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px; background: color-mix(in srgb, var(--accent) 28%, transparent); pointer-events: none; transition: transform 200ms ease, width 200ms ease; }
 .cc-navbar-actions { display: flex; align-items: center; gap: 6px; }
 .cc-search-pill { display: inline-flex; height: 34px; align-items: center; gap: 7px; padding: 0 8px 0 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--text); background: var(--surface-2); font-size: .72rem; font-weight: 600; }
 .cc-search-pill:hover, .cc-navbar-github:hover { color: var(--text); border-color: var(--accent); }
